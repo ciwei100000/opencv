@@ -1,6 +1,7 @@
 opencv (2.4.9+dfsg-1~bpo70+1) wheezy-backports; urgency=low
 
   * Rebuild for wheezy-backports.
+  * Added cuda support: nvidia-cuda-toolkit as dependency and cmake set ON.
 
  -- Leopold Palomo-Avellaneda <leo@alaxarxa.net>  Mon, 14 Jul 2014 13:02:07 +0200
 

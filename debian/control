@@ -25,10 +25,12 @@ Build-Depends: debhelper (>= 9),
  python-support (>= 0.4.1),
  python-numpy,
  python-sphinx,
+ nvidia-cuda-toolkit,
  ant, default-jdk, javahelper,
  texlive-fonts-extra, texlive-latex-extra, texlive-latex-recommended,
  latex-xcolor, texlive-fonts-recommended
 Standards-Version: 3.9.5
+X-Python-Version: >= 2.5
 Vcs-Git: git://anonscm.debian.org/debian-science/packages/opencv.git
 Vcs-Browser: http://anonscm.debian.org/gitweb/?p=debian-science/packages/opencv.git;a=summary
 Homepage: http://opencv.org/
