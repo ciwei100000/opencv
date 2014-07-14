@@ -25,7 +25,7 @@ Build-Depends: debhelper (>= 9),
  python-support (>= 0.4.1),
  python-numpy,
  python-sphinx,
- nvidia-cuda-toolkit,
+ nvidia-cuda-toolkit (>= 5.5.0),
  ant, default-jdk, javahelper,
  texlive-fonts-extra, texlive-latex-extra, texlive-latex-recommended,
  latex-xcolor, texlive-fonts-recommended
