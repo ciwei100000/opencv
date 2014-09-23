@@ -1,3 +1,9 @@
+opencv (2.4.9+dfsg-1.drp70+2) wheezy-robotics; urgency=medium
+
+  * Removed all cuda suport and nvidia dependencies.
+
+ -- Leopold Palomo-Avellaneda <leo@alaxarxa.net>  Tue, 23 Sep 2014 13:17:26 +0200
+
 opencv (2.4.9+dfsg-1.drp70+1) wheezy-robotics; urgency=low
 
   * Rebuild for wheezy-robotics.
