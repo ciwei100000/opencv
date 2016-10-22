@@ -358,8 +358,6 @@ Core_DynStructBaseTest::Core_DynStructBaseTest()
     iterations = max_struct_size*2;
     gen = struct_idx = iter = -1;
     test_progress = -1;
-
-    storage = 0;
 }
 
 
@@ -493,6 +491,7 @@ class Core_SeqBaseTest : public Core_DynStructBaseTest
 {
 public:
     Core_SeqBaseTest();
+    virtual ~Core_SeqBaseTest();
     void clear();
     void run( int );
 
@@ -503,11 +502,14 @@ protected:
     int test_seq_ops( int iters );
 };
 
-
 Core_SeqBaseTest::Core_SeqBaseTest()
 {
 }
 
+Core_SeqBaseTest::~Core_SeqBaseTest()
+{
+    clear();
+}
 
 void Core_SeqBaseTest::clear()
 {
@@ -999,7 +1001,7 @@ void Core_SeqBaseTest::run( int )
             {
                 t = cvtest::randReal(rng)*(max_log_storage_block_size - min_log_storage_block_size)
                 + min_log_storage_block_size;
-                storage = cvCreateMemStorage( cvRound( exp(t * CV_LOG2) ) );
+                storage.reset(cvCreateMemStorage( cvRound( exp(t * CV_LOG2) ) ));
             }
 
             iter = struct_idx = -1;
@@ -1083,11 +1085,11 @@ void Core_SeqSortInvTest::run( int )
         {
             struct_idx = iter = -1;
 
-            if( storage.empty() )
+            if( !storage )
             {
                 t = cvtest::randReal(rng)*(max_log_storage_block_size - min_log_storage_block_size)
                 + min_log_storage_block_size;
-                storage = cvCreateMemStorage( cvRound( exp(t * CV_LOG2) ) );
+                storage.reset(cvCreateMemStorage( cvRound( exp(t * CV_LOG2) ) ));
             }
 
             for( iter = 0; iter < iterations/10; iter++ )
@@ -1208,6 +1210,7 @@ class Core_SetTest : public Core_DynStructBaseTest
 {
 public:
     Core_SetTest();
+    virtual ~Core_SetTest();
     void clear();
     void run( int );
 
@@ -1221,6 +1224,10 @@ Core_SetTest::Core_SetTest()
 {
 }
 
+Core_SetTest::~Core_SetTest()
+{
+    clear();
+}
 
 void Core_SetTest::clear()
 {
@@ -1384,7 +1391,7 @@ void Core_SetTest::run( int )
         {
             struct_idx = iter = -1;
             t = cvtest::randReal(rng)*(max_log_storage_block_size - min_log_storage_block_size) + min_log_storage_block_size;
-            storage = cvCreateMemStorage( cvRound( exp(t * CV_LOG2) ) );
+            storage.reset(cvCreateMemStorage( cvRound( exp(t * CV_LOG2) ) ));
 
             for( int i = 0; i < struct_count; i++ )
             {
@@ -1398,7 +1405,7 @@ void Core_SetTest::run( int )
 
                 cvTsReleaseSimpleSet( (CvTsSimpleSet**)&simple_struct[i] );
                 simple_struct[i] = cvTsCreateSimpleSet( max_struct_size, pure_elem_size );
-                 cxcore_struct[i] = cvCreateSet( 0, sizeof(CvSet), elem_size, storage );
+                cxcore_struct[i] = cvCreateSet( 0, sizeof(CvSet), elem_size, storage );
             }
 
             if( test_set_ops( iterations*100 ) < 0 )
@@ -1419,6 +1426,7 @@ class Core_GraphTest : public Core_DynStructBaseTest
 {
 public:
     Core_GraphTest();
+    virtual ~Core_GraphTest();
     void clear();
     void run( int );
 
@@ -1432,6 +1440,10 @@ Core_GraphTest::Core_GraphTest()
 {
 }
 
+Core_GraphTest::~Core_GraphTest()
+{
+    clear();
+}
 
 void Core_GraphTest::clear()
 {
@@ -1811,7 +1823,7 @@ void Core_GraphTest::run( int )
             int block_size = cvRound( exp(t * CV_LOG2) );
             block_size = MAX(block_size, (int)(sizeof(CvGraph) + sizeof(CvMemBlock) + sizeof(CvSeqBlock)));
 
-            storage = cvCreateMemStorage(block_size);
+            storage.reset(cvCreateMemStorage(block_size));
 
             for( i = 0; i < struct_count; i++ )
             {
@@ -1929,7 +1941,7 @@ void Core_GraphScanTest::run( int )
             storage_blocksize = MAX(storage_blocksize, (int)(sizeof(CvGraph) + sizeof(CvMemBlock) + sizeof(CvSeqBlock)));
             storage_blocksize = MAX(storage_blocksize, (int)(sizeof(CvGraphEdge) + sizeof(CvMemBlock) + sizeof(CvSeqBlock)));
             storage_blocksize = MAX(storage_blocksize, (int)(sizeof(CvGraphVtx) + sizeof(CvMemBlock) + sizeof(CvSeqBlock)));
-            storage = cvCreateMemStorage(storage_blocksize);
+            storage.reset(cvCreateMemStorage(storage_blocksize));
 
             if( gen == 0 )
             {
@@ -2044,6 +2056,8 @@ void Core_GraphScanTest::run( int )
                 CV_TS_SEQ_CHECK_CONDITION( vtx_count == 0 && edge_count == 0,
                                           "Not every vertex/edge has been visited" );
                 update_progressbar();
+
+                cvReleaseGraphScanner( &scanner );
             }
 
             // for a random graph the test just checks that every graph vertex and
@@ -2108,8 +2122,6 @@ void Core_GraphScanTest::run( int )
     catch(int)
     {
     }
-
-    cvReleaseGraphScanner( &scanner );
 }
 
 

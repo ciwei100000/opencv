@@ -13,12 +13,16 @@ static void help()
          << "./convexhull\n" << endl;
 }
 
-int main( int /*argc*/, char** /*argv*/ )
+int main( int argc, char** argv )
 {
+    CommandLineParser parser(argc, argv, "{help h||}");
+    if (parser.has("help"))
+    {
+        help();
+        return 0;
+    }
     Mat img(500, 500, CV_8UC3);
     RNG& rng = theRNG();
-
-    help();
 
     for(;;)
     {
@@ -41,7 +45,7 @@ int main( int /*argc*/, char** /*argv*/ )
 
         img = Scalar::all(0);
         for( i = 0; i < count; i++ )
-            circle(img, points[i], 3, Scalar(0, 0, 255), CV_FILLED, CV_AA);
+            circle(img, points[i], 3, Scalar(0, 0, 255), FILLED, LINE_AA);
 
         int hullcount = (int)hull.size();
         Point pt0 = points[hull[hullcount-1]];
@@ -49,7 +53,7 @@ int main( int /*argc*/, char** /*argv*/ )
         for( i = 0; i < hullcount; i++ )
         {
             Point pt = points[hull[i]];
-            line(img, pt0, pt, Scalar(0, 255, 0), 1, CV_AA);
+            line(img, pt0, pt, Scalar(0, 255, 0), 1,LINE_AA);
             pt0 = pt;
         }
 
