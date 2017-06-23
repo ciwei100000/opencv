@@ -1,3 +1,21 @@
+opencv (3.1.0+dfsg-1~exp2~drp8+3) jessie-robotics; urgency=medium
+
+  * New version with Breaks and Replaces in Java package.
+
+ -- Leopold Palomo-Avellaneda <leo@alaxarxa.net>  Tue, 25 Oct 2016 12:45:05 +0200
+
+opencv (3.1.0+dfsg-1~exp2~drp8+2) jessie-robotics; urgency=medium
+
+  * Drop libvtk6.3 from libopencv-viz3.1. ${shlibs:Depends} should do the job.
+
+ -- Leopold Palomo-Avellaneda <leo@alaxarxa.net>  Mon, 24 Oct 2016 12:54:16 +0200
+
+opencv (3.1.0+dfsg-1~exp2~drp8+1) jessie-robotics; urgency=medium
+
+  * Rebuild for jessie-robotics.
+
+ -- Leopold Palomo-Avellaneda <leo@alaxarxa.net>  Sat, 22 Oct 2016 13:46:44 +0200
+
 opencv (3.1.0+dfsg-1~exp2) experimental; urgency=medium
 
   * Fix Depends of libopencv-shape3.1 and libopencv-shape-dev.
