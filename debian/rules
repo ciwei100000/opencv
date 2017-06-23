@@ -1,22 +1,17 @@
 #!/usr/bin/make -f
 
-export DEB_BUILD_MAINT_OPTIONS=hardening=+all,-pie,+fortify
+export DEB_BUILD_MAINT_OPTIONS=hardening=+all
 DEB_HOST_ARCH ?= $(shell dpkg-architecture -qDEB_HOST_ARCH)
 DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 DEB_HOST_ARCH_OS ?= $(shell dpkg-architecture -qDEB_HOST_ARCH_OS)
 
-# for i386 arch
-ifeq ($(DEB_HOST_ARCH),i386)
-BUILDDIR_ARCH = i586-linux-gnu
-else
-BUILDDIR_ARCH = $(DEB_HOST_MULTIARCH)
-endif
+BUILDDIR = obj-$(DEB_HOST_MULTIARCH)
 
 # SSE options
 ifeq ($(DEB_HOST_ARCH),amd64)
-CMAKE_ARCH_FLAGS = -DENABLE_SSE=ON -DENABLE_SSE2=ON -DENABLE_SSE3=OFF 
+CMAKE_ARCH_FLAGS = -DENABLE_SSE=ON -DENABLE_SSE2=ON -DENABLE_SSE3=OFF
 else
-CMAKE_ARCH_FLAGS = -DENABLE_SSE=OFF -DENABLE_SSE2=OFF -DENABLE_SSE3=OFF 
+CMAKE_ARCH_FLAGS = -DENABLE_SSE=OFF -DENABLE_SSE2=OFF -DENABLE_SSE3=OFF
 endif
 
 # TBB support
@@ -78,62 +73,64 @@ CMAKE_FLAGS = \
 	-DENABLE_PRECOMPILED_HEADERS=OFF \
 	-DWITH_IPP=OFF \
 	-DOPENCL_INCLUDE_DIR:PATH="/usr/include/CL/" \
-	$(CMAKE_ARCH_FLAGS) 
+	-DOPENCV_EXTRA_MODULES_PATH="$(CURDIR)/contrib/modules" \
+	$(CMAKE_ARCH_FLAGS)
 
 %:
-	dh $@ --buildsystem=cmake --with python2 --with javahelper --parallel
+	dh $@ --with python2,python3,javahelper --parallel
 
 override_dh_clean:
 	rm -rf modules/python/src2/hdr_parser.pyc
 	rm -rf modules/java/generator/rst_parser.pyc
 	rm -rf modules/refman.rst
 
-	dh_clean -O--buildsystem=cmake
-	-rm -rf obj-$(BUILDDIR_ARCH)
-	-rm -rf obj-$(BUILDDIR_ARCH)-static
-	-rm -rf modules/python/src2/__pycache__/hdr_parser.cpython-34.pyc
+	dh_clean
+	-rm -rf modules/python/src2/__pycache__
+
+override_dh_auto_clean:
+	dh_auto_clean -B $(BUILDDIR)
+	dh_auto_clean -B $(BUILDDIR)-static
 
 override_dh_auto_configure: configure_dyn configure_static
 configure_dyn:
-	dh_auto_configure -B obj-$(BUILDDIR_ARCH) \
+	dh_auto_configure -B $(BUILDDIR) \
 		-- $(CMAKE_FLAGS) \
 		-DCMAKE_SHARED_LINKER_FLAGS_RELEASE="$(LDFLAGS)" \
 		-DBUILD_SHARED_LIBS=ON -DBUILD_DOCS=ON
 
 configure_static:
-	dh_auto_configure -B obj-$(BUILDDIR_ARCH)-static \
+	dh_auto_configure -B $(BUILDDIR)-static \
 		-- $(CMAKE_FLAGS) \
 		-DBUILD_SHARED_LIBS=OFF -DBUILD_DOCS=OFF
 
 override_dh_auto_build: build_dyn build_static
 	
 build_dyn:
-	dh_auto_build -B obj-$(BUILDDIR_ARCH)
-	dh_auto_build -B obj-$(BUILDDIR_ARCH) -- doxygen
+	dh_auto_build -B $(BUILDDIR)
+	dh_auto_build -B $(BUILDDIR) -- doxygen
 
 build_static:
-	dh_auto_build -B obj-$(BUILDDIR_ARCH)-static
+	dh_auto_build -B $(BUILDDIR)-static
 
 override_dh_auto_test:
 
-override_dh_install:
-	-rm --verbose -rf debian/tmp/usr/share/opencv/samples/octave
-	-rm --verbose -rf debian/tmp/usr/share/opencv/samples/c/cvsample.dsp
-	-rm --verbose -rf debian/tmp/usr/share/OpenCV/doc/license.txt
+override_dh_auto_install:
+	dh_auto_install -B $(BUILDDIR)
 
+override_dh_install:
 	# change install path of java library
 	sed -i -e "s@share\/OpenCV\/java\/@lib\/jni\/@g" \
 		debian/tmp/usr/share/OpenCV/OpenCVModules-release.cmake
 
-	for f in $$(ls obj-*/lib/libopencv_*.a); do \
-		cp --verbose --preserve=mode $$f debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/; done
+	# put the static libs together with the rest of the stuff
+	cp -v $(BUILDDIR)-static/lib/*.a debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/
 
-	rm -rf debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/*_pch_dephelp.a
-	rm -rf debian/tmp/usr/share/OpenCV/doc/html/jquery.js
+	rm -vrf debian/tmp/usr/share/OpenCV/doc/html/jquery.js
 
-	dh_install -O--buildsystem=cmake --list-missing
+	find debian/tmp -type d -empty -delete
+	dh_install --fail-missing
 
-override_dh_fixperms-indep:
-	dh_fixperms
-	#chmod 644 $(CURDIR)/debian/opencv-doc/usr/share/doc/opencv-doc/examples/python/*.py
-	#chmod 644 $(CURDIR)/debian/opencv-doc/usr/share/doc/opencv-doc/examples/python2/*.py
+override_dh_gencontrol:
+	dh_numpy
+	dh_numpy3
+	dh_gencontrol

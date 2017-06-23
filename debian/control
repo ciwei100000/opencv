@@ -2,31 +2,48 @@ Source: opencv
 Priority: optional
 Section: devel
 Maintainer: Debian Science Team <debian-science-maintainers@lists.alioth.debian.org>
-Uploaders: Sam Hocevar (Debian packages) <sam+deb@zoy.org>,
-		Nobuhiro Iwamatsu <iwamatsu@debian.org>
-Build-Depends: debhelper (>= 9),
+Uploaders:
+ Sam Hocevar (Debian packages) <sam+deb@zoy.org>,
+ Nobuhiro Iwamatsu <iwamatsu@debian.org>,
+Build-Depends:
+ ant,
  cmake (>= 2.8.7),
- libavcodec-dev, libavformat-dev, libswscale-dev, libgtk2.0-dev, libgtkglext1-dev,
- libgl1-mesa-dev, libglu1-mesa-dev,
- libjpeg-dev,
- libpng-dev,
- libtiff-dev,
- libopenexr-dev (>= 1.6.1-8.1),
- libraw1394-dev [linux-any],
+ debhelper (>= 9),
+ default-jdk,
+ dh-python,
+ doxygen,
+ javahelper,
+ libavcodec-dev,
+ libavformat-dev,
+ libavresample-dev,
  libdc1394-22-dev [linux-any],
- libv4l-dev [linux-any],
- zlib1g-dev (>= 1.2.5),
- liblapack-dev (>= 3.2.1),
- libtbb-dev [i386 amd64 ia64 powerpc ppc64 ppc64el],
  libeigen3-dev,
  libgdal-dev,
+ libgl1-mesa-dev,
+ libglu1-mesa-dev,
+ libgoogle-glog-dev,
+ libgphoto2-dev,
+ libgtk-3-dev,
+ libjpeg-dev,
+ liblapack-dev (>= 3.2.1),
+ libleptonica-dev,
+ libopenexr-dev (>= 1.6.1-8.1),
+ libpng-dev,
+ libprotobuf-dev,
+ libraw1394-dev [linux-any],
+ libswscale-dev,
+ libtbb-dev [i386 amd64 ia64 powerpc ppc64 ppc64el],
+ libtesseract-dev,
+ libtiff-dev,
+ libv4l-dev [linux-any],
  libvtk6-dev,
  ocl-icd-opencl-dev,
+ protobuf-compiler,
  python-dev,
- dh-python,
  python-numpy,
- doxygen,
- ant, default-jdk, javahelper
+ python3-dev,
+ python3-numpy,
+ zlib1g-dev (>= 1.2.5),
 Standards-Version: 3.9.8
 Vcs-Git: https://anonscm.debian.org/git/debian-science/packages/opencv.git
 Vcs-Browser: https://anonscm.debian.org/git/debian-science/packages/opencv.git
@@ -35,9 +52,14 @@ Homepage: http://opencv.org/
 Package: opencv-doc
 Section: doc
 Architecture: all
-Depends: ${misc:Depends}, libjs-mathjax, libjs-jquery
-Conflicts: libopencv-doc
-Replaces: libopencv-doc
+Depends:
+ libjs-jquery,
+ libjs-mathjax,
+ ${misc:Depends},
+Conflicts:
+ libopencv-doc,
+Replaces:
+ libopencv-doc,
 Description: OpenCV documentation and examples
  This package contains the OpenCV documentation and example programs.
  .
@@ -54,32 +76,44 @@ Description: OpenCV documentation and examples
 Package: libopencv-dev
 Section: libdevel
 Architecture: any
-Depends: ${misc:Depends}, ${shlibs:Depends},
-	libopencv-core-dev (= ${binary:Version}),
-	libopencv-ml-dev (= ${binary:Version}),
-	libopencv-imgproc-dev (= ${binary:Version}),
-	libopencv-video-dev (= ${binary:Version}),
-	libopencv-videoio-dev (= ${binary:Version}),
-	libopencv-objdetect-dev (= ${binary:Version}),
-	libopencv-highgui-dev (= ${binary:Version}),
-	libopencv-calib3d-dev (= ${binary:Version}),
-	libopencv-flann-dev (= ${binary:Version}),
-	libopencv-features2d-dev (= ${binary:Version}),
-	libopencv-ts-dev (= ${binary:Version}),
-	libopencv-photo-dev (= ${binary:Version}),
-	libopencv-videostab-dev (= ${binary:Version}),
-	libopencv-shape-dev (= ${binary:Version}),
-	libopencv-stitching-dev (= ${binary:Version}),
-	libopencv-superres-dev (= ${binary:Version}),
-	libopencv-imgcodecs-dev (= ${binary:Version}),
-	libopencv-viz-dev (= ${binary:Version}),
-	libopencv3.1-java (= ${binary:Version}),
-	pkg-config
-Recommends: opencv-data
-Breaks: libopencv-core-dev (<= 2.3.1-8)
-Replaces: libcv-dev, libcvaux-dev, libhighgui-dev
-Conflicts: libcv-dev (<= 2.4.9.1+dfsg-2.1), libcvaux-dev (<= 2.4.9.1+dfsg-2.1),
-	libhighgui-dev (<= 2.4.9.1+dfsg-2.1)
+Depends:
+ libopencv-calib3d-dev (= ${binary:Version}),
+ libopencv-contrib-dev (= ${binary:Version}),
+ libopencv-core-dev (= ${binary:Version}),
+ libopencv-features2d-dev (= ${binary:Version}),
+ libopencv-flann-dev (= ${binary:Version}),
+ libopencv-highgui-dev (= ${binary:Version}),
+ libopencv-imgcodecs-dev (= ${binary:Version}),
+ libopencv-imgproc-dev (= ${binary:Version}),
+ libopencv-ml-dev (= ${binary:Version}),
+ libopencv-objdetect-dev (= ${binary:Version}),
+ libopencv-photo-dev (= ${binary:Version}),
+ libopencv-shape-dev (= ${binary:Version}),
+ libopencv-stitching-dev (= ${binary:Version}),
+ libopencv-superres-dev (= ${binary:Version}),
+ libopencv-ts-dev (= ${binary:Version}),
+ libopencv-video-dev (= ${binary:Version}),
+ libopencv-videoio-dev (= ${binary:Version}),
+ libopencv-videostab-dev (= ${binary:Version}),
+ libopencv-viz-dev (= ${binary:Version}),
+ libopencv3.1-java (= ${source:Version}),
+ pkg-config,
+ ${misc:Depends},
+ ${shlibs:Depends},
+Recommends:
+ opencv-data,
+Suggests:
+ opencv-doc,
+Breaks:
+ libopencv-core-dev (<= 2.3.1-8),
+Replaces:
+ libcv-dev,
+ libcvaux-dev,
+ libhighgui-dev,
+Conflicts:
+ libcv-dev (<= 2.4.9.1+dfsg-2.1),
+ libcvaux-dev (<= 2.4.9.1+dfsg-2.1),
+ libhighgui-dev (<= 2.4.9.1+dfsg-2.1),
 Description: development files for opencv
  This is a metapackage providing development package necessary for
  development of OpenCV (Open Computer Vision).
@@ -97,11 +131,13 @@ Description: development files for opencv
 Package: opencv-data
 Section: libdevel
 Architecture: all
-Depends: ${misc:Depends}
-Breaks: libopencv-dev (<= 2.3.1-12)
+Depends:
+ ${misc:Depends},
+Breaks:
+ libopencv-dev (<= 2.3.1-12),
 Description: development data for opencv
- This is a metapackage providing development package necessary for
- development of OpenCV (Open Computer Vision).
+ This package contains some architecture independent files useful for
+ development with OpenCV.
  .
  The Open Computer Vision Library is a collection of algorithms and sample
  code for various computer vision problems. The library is compatible with
@@ -117,8 +153,11 @@ Package: libopencv-core-dev
 Section: libdevel
 Architecture: any
 Multi-Arch: same
-Depends: ${misc:Depends}, libopencv-core3.1 (= ${binary:Version}),
-	zlib1g-dev, libtbb-dev [i386 amd64 ia64 powerpc ppc64 ppc64el]
+Depends:
+ libopencv-core3.1 (= ${binary:Version}),
+ libtbb-dev [i386 amd64 ia64 powerpc ppc64 ppc64el],
+ zlib1g-dev,
+ ${misc:Depends},
 Description: development files for libopencv-core3.1
  This package contains the header files and static library needed to compile
  applications that use OpenCV (Open Computer Vision) core.
@@ -137,8 +176,11 @@ Package: libopencv-core3.1
 Section: libs
 Architecture: any
 Multi-Arch: same
-Pre-Depends: ${misc:Pre-Depends}
-Depends: ${misc:Depends}, ${shlibs:Depends}
+Pre-Depends:
+ ${misc:Pre-Depends},
+Depends:
+ ${misc:Depends},
+ ${shlibs:Depends},
 Description: computer vision core library
  This package contains the OpenCV (Open Computer Vision) core runtime libraries.
  .
@@ -156,9 +198,10 @@ Package: libopencv-ml-dev
 Section: libdevel
 Architecture: any
 Multi-Arch: same
-Depends: ${misc:Depends},
-	libopencv-core-dev (= ${binary:Version}),
-	libopencv-ml3.1 (= ${binary:Version})
+Depends:
+ libopencv-core-dev (= ${binary:Version}),
+ libopencv-ml3.1 (= ${binary:Version}),
+ ${misc:Depends},
 Description: development files for libopencv-ml3.1
  This package contains the header files and static library needed to compile
  applications that use OpenCV (Open Computer Vision) Machine Learning library.
@@ -177,9 +220,12 @@ Package: libopencv-ml3.1
 Section: libs
 Architecture: any
 Multi-Arch: same
-Pre-Depends: ${misc:Pre-Depends}
-Depends: ${shlibs:Depends}, ${misc:Depends},
-	libopencv-core3.1 (= ${binary:Version})
+Pre-Depends:
+ ${misc:Pre-Depends},
+Depends:
+ libopencv-core3.1 (= ${binary:Version}),
+ ${misc:Depends},
+ ${shlibs:Depends},
 Description: computer vision Machine Learning library
  This package contains the OpenCV (Open Computer Vision) Machine Learning
  runtime libraries.
@@ -198,9 +244,10 @@ Package: libopencv-imgproc-dev
 Section: libdevel
 Architecture: any
 Multi-Arch: same
-Depends: ${misc:Depends},
-	libopencv-core-dev (= ${binary:Version}),
-	libopencv-imgproc3.1 (= ${binary:Version})
+Depends:
+ libopencv-core-dev (= ${binary:Version}),
+ libopencv-imgproc3.1 (= ${binary:Version}),
+ ${misc:Depends},
 Description: development files for libopencv-imgproc3.1
  This package contains the header files and static library needed to compile
  applications that use OpenCV (Open Computer Vision) Image Processing library.
@@ -219,9 +266,12 @@ Package: libopencv-imgproc3.1
 Section: libs
 Architecture: any
 Multi-Arch: same
-Pre-Depends: ${misc:Pre-Depends}
-Depends: ${shlibs:Depends}, ${misc:Depends},
-	libopencv-core3.1 (= ${binary:Version})
+Pre-Depends:
+ ${misc:Pre-Depends},
+Depends:
+ libopencv-core3.1 (= ${binary:Version}),
+ ${misc:Depends},
+ ${shlibs:Depends},
 Description: computer vision Image Processing library
  This package contains the OpenCV (Open Computer Vision) Image Processing
  runtime libraries.
@@ -240,9 +290,10 @@ Package: libopencv-imgcodecs-dev
 Section: libdevel
 Architecture: any
 Multi-Arch: same
-Depends: ${misc:Depends},
-	libopencv-imgproc-dev (= ${binary:Version}),
-	libopencv-imgcodecs3.1 (= ${binary:Version})
+Depends:
+ libopencv-imgcodecs3.1 (= ${binary:Version}),
+ libopencv-imgproc-dev (= ${binary:Version}),
+ ${misc:Depends},
 Description: development files for libopencv-imgcodecs3.1
  This package contains the header files and static library needed to compile
  applications that use OpenCV (Open Computer Vision) Image Codecs library.
@@ -261,9 +312,12 @@ Package: libopencv-imgcodecs3.1
 Section: libs
 Architecture: any
 Multi-Arch: same
-Pre-Depends: ${misc:Pre-Depends}
-Depends: ${shlibs:Depends}, ${misc:Depends},
-	libopencv-imgproc3.1 (= ${binary:Version})
+Pre-Depends:
+ ${misc:Pre-Depends},
+Depends:
+ libopencv-imgproc3.1 (= ${binary:Version}),
+ ${misc:Depends},
+ ${shlibs:Depends},
 Description: computer vision Image Codecs library
  This package contains the OpenCV (Open Computer Vision) Image Codecs
  runtime libraries.
@@ -282,9 +336,10 @@ Package: libopencv-video-dev
 Section: libdevel
 Architecture: any
 Multi-Arch: same
-Depends: ${misc:Depends},
-	libopencv-imgproc-dev (= ${binary:Version}),
-	libopencv-video3.1 (= ${binary:Version})
+Depends:
+ libopencv-imgproc-dev (= ${binary:Version}),
+ libopencv-video3.1 (= ${binary:Version}),
+ ${misc:Depends},
 Description: development files for libopencv-video3.1
  This package contains the header files and static library needed to compile
  applications that use OpenCV (Open Computer Vision) Video analysis library.
@@ -303,9 +358,12 @@ Package: libopencv-video3.1
 Section: libs
 Architecture: any
 Multi-Arch: same
-Pre-Depends: ${misc:Pre-Depends}
-Depends: ${shlibs:Depends}, ${misc:Depends},
-	libopencv-imgproc3.1 (= ${binary:Version})
+Pre-Depends:
+ ${misc:Pre-Depends},
+Depends:
+ libopencv-imgproc3.1 (= ${binary:Version}),
+ ${misc:Depends},
+ ${shlibs:Depends},
 Description: computer vision Video analysis library
  This package contains the OpenCV (Open Computer Vision) Video analysis
  runtime libraries.
@@ -324,9 +382,12 @@ Package: libopencv-videoio-dev
 Section: libdevel
 Architecture: any
 Multi-Arch: same
-Depends: ${misc:Depends},
-	libopencv-imgcodecs-dev (= ${binary:Version}),
-	libopencv-videoio3.1 (= ${binary:Version})
+Depends:
+ libavresample-dev,
+ libgphoto2-dev,
+ libopencv-imgcodecs-dev (= ${binary:Version}),
+ libopencv-videoio3.1 (= ${binary:Version}),
+ ${misc:Depends},
 Description: development files for libopencv-videoio3.1
  This package contains the header files and static library needed to compile
  applications that use OpenCV (Open Computer Vision) Video I/O library.
@@ -345,9 +406,12 @@ Package: libopencv-videoio3.1
 Section: libs
 Architecture: any
 Multi-Arch: same
-Pre-Depends: ${misc:Pre-Depends}
-Depends: ${shlibs:Depends}, ${misc:Depends},
-	libopencv-imgcodecs3.1 (= ${binary:Version})
+Pre-Depends:
+ ${misc:Pre-Depends},
+Depends:
+ libopencv-imgcodecs3.1 (= ${binary:Version}),
+ ${misc:Depends},
+ ${shlibs:Depends},
 Description: computer vision Video I/O library
  This package contains the OpenCV (Open Computer Vision) Video I/O
  runtime libraries.
@@ -366,10 +430,11 @@ Package: libopencv-objdetect-dev
 Section: libdevel
 Architecture: any
 Multi-Arch: same
-Depends: ${misc:Depends},
-	libopencv-highgui-dev (= ${binary:Version}),
-	libopencv-ml-dev (= ${binary:Version}),
-	libopencv-objdetect3.1 (= ${binary:Version})
+Depends:
+ libopencv-highgui-dev (= ${binary:Version}),
+ libopencv-ml-dev (= ${binary:Version}),
+ libopencv-objdetect3.1 (= ${binary:Version}),
+ ${misc:Depends},
 Description: development files for libopencv-objdetect3.1
  This package contains the header files and static library needed to compile
  applications that use OpenCV (Open Computer Vision) Object Detection library.
@@ -388,10 +453,13 @@ Package: libopencv-objdetect3.1
 Section: libs
 Architecture: any
 Multi-Arch: same
-Pre-Depends: ${misc:Pre-Depends}
-Depends: ${shlibs:Depends}, ${misc:Depends},
-	libopencv-highgui3.1 (= ${binary:Version}),
-	libopencv-ml3.1 (= ${binary:Version})
+Pre-Depends:
+ ${misc:Pre-Depends},
+Depends:
+ libopencv-highgui3.1 (= ${binary:Version}),
+ libopencv-ml3.1 (= ${binary:Version}),
+ ${misc:Depends},
+ ${shlibs:Depends},
 Description: computer vision Object Detection library
  This package contains the OpenCV (Open Computer Vision) Object Detection
  runtime libraries.
@@ -410,19 +478,21 @@ Package: libopencv-highgui-dev
 Section: libdevel
 Architecture: any
 Multi-Arch: same
-Depends: ${misc:Depends},
-	libopencv-videoio-dev (= ${binary:Version}),
-	libopencv-highgui3.1 (= ${binary:Version}),
- 	libavcodec-dev (>= 0.svn20080206),
-	libavformat-dev,
-	libswscale-dev,
-	libgtk2.0-dev,
-	libjpeg-dev,
-	libpng-dev,
-	libtiff-dev,
-	libopenexr-dev (>= 1.4.0),
-	libraw1394-dev [!kfreebsd-amd64 !kfreebsd-i386 !hurd-i386],
-	libdc1394-22-dev [!kfreebsd-amd64 !kfreebsd-i386 !hurd-i386]
+Depends:
+ libavcodec-dev (>= 0.svn20080206),
+ libavformat-dev,
+ libavresample-dev,
+ libdc1394-22-dev [!kfreebsd-amd64 !kfreebsd-i386 !hurd-i386],
+ libgphoto2-dev,
+ libjpeg-dev,
+ libopencv-highgui3.1 (= ${binary:Version}),
+ libopencv-videoio-dev (= ${binary:Version}),
+ libopenexr-dev (>= 1.4.0),
+ libpng-dev,
+ libraw1394-dev [!kfreebsd-amd64 !kfreebsd-i386 !hurd-i386],
+ libswscale-dev,
+ libtiff-dev,
+ ${misc:Depends},
 Description: development files for libopencv-highgui3.1
  This package contains the header files and static library needed to compile
  applications that use OpenCV (Open Computer Vision) High-level GUI and
@@ -442,10 +512,12 @@ Package: libopencv-highgui3.1
 Section: libs
 Architecture: any
 Multi-Arch: same
-Pre-Depends: ${misc:Pre-Depends}
-Depends: ${misc:Depends},
-	${shlibs:Depends},
-	libopencv-videoio3.1 (= ${binary:Version})
+Pre-Depends:
+ ${misc:Pre-Depends},
+Depends:
+ libopencv-videoio3.1 (= ${binary:Version}),
+ ${misc:Depends},
+ ${shlibs:Depends},
 Description: computer vision High-level GUI and Media I/O library
  This package contains the OpenCV (Open Computer Vision) High-level GUI
  and Media I/O runtime libraries.
@@ -464,9 +536,10 @@ Package: libopencv-calib3d-dev
 Section: libdevel
 Architecture: any
 Multi-Arch: same
-Depends: ${misc:Depends},
-	libopencv-features2d-dev (= ${binary:Version}),
-	libopencv-calib3d3.1 (= ${binary:Version})
+Depends:
+ libopencv-calib3d3.1 (= ${binary:Version}),
+ libopencv-features2d-dev (= ${binary:Version}),
+ ${misc:Depends},
 Description: development files for libopencv-calib3d3.1
  This package contains the header files and static library needed to compile
  applications that use OpenCV (Open Computer Vision) Camera Calibration library.
@@ -485,9 +558,12 @@ Package: libopencv-calib3d3.1
 Section: libs
 Architecture: any
 Multi-Arch: same
-Pre-Depends: ${misc:Pre-Depends}
-Depends: ${shlibs:Depends}, ${misc:Depends},
-	libopencv-features2d3.1 (= ${binary:Version}),
+Pre-Depends:
+ ${misc:Pre-Depends},
+Depends:
+ libopencv-features2d3.1 (= ${binary:Version}),
+ ${misc:Depends},
+ ${shlibs:Depends},
 Description: computer vision Camera Calibration library
  This package contains the OpenCV (Open Computer Vision) Camera Calibration
  runtime libraries.
@@ -506,9 +582,10 @@ Package: libopencv-flann-dev
 Section: libdevel
 Architecture: any
 Multi-Arch: same
-Depends: ${misc:Depends},
-	libopencv-core-dev (= ${binary:Version}),
-	libopencv-flann3.1 (= ${binary:Version})
+Depends:
+ libopencv-core-dev (= ${binary:Version}),
+ libopencv-flann3.1 (= ${binary:Version}),
+ ${misc:Depends},
 Description: development files for libopencv-flann3.1
  This package contains the header files and static library needed to compile
  applications that use OpenCV (Open Computer Vision) Clustering and Search
@@ -528,9 +605,12 @@ Package: libopencv-flann3.1
 Section: libs
 Architecture: any
 Multi-Arch: same
-Pre-Depends: ${misc:Pre-Depends}
-Depends: ${shlibs:Depends}, ${misc:Depends},
-	libopencv-core3.1 (= ${binary:Version}),
+Pre-Depends:
+ ${misc:Pre-Depends},
+Depends:
+ libopencv-core3.1 (= ${binary:Version}),
+ ${misc:Depends},
+ ${shlibs:Depends},
 Description: computer vision Clustering and Search in Multi-Dimensional spaces library
  This package contains the OpenCV (Open Computer Vision) clustering and
  search in Multi-Dimensional spaces runtime libraries.
@@ -549,11 +629,12 @@ Package: libopencv-features2d-dev
 Section: libdevel
 Architecture: any
 Multi-Arch: same
-Depends: ${misc:Depends},
-	libopencv-flann-dev (= ${binary:Version}),
-	libopencv-ml-dev (= ${binary:Version}),
-	libopencv-highgui-dev (= ${binary:Version}),
-	libopencv-features2d3.1 (= ${binary:Version})
+Depends:
+ libopencv-features2d3.1 (= ${binary:Version}),
+ libopencv-flann-dev (= ${binary:Version}),
+ libopencv-highgui-dev (= ${binary:Version}),
+ libopencv-ml-dev (= ${binary:Version}),
+ ${misc:Depends},
 Description: development files for libopencv-features2d3.1
  This package contains the header files and static library needed to compile
  applications that use OpenCV (Open Computer Vision) Feature Detection and
@@ -573,11 +654,14 @@ Package: libopencv-features2d3.1
 Section: libs
 Architecture: any
 Multi-Arch: same
-Pre-Depends: ${misc:Pre-Depends}
-Depends: ${shlibs:Depends}, ${misc:Depends},
-	libopencv-flann3.1 (= ${binary:Version}),
-	libopencv-ml3.1 (= ${binary:Version}),
-	libopencv-highgui3.1 (= ${binary:Version}),
+Pre-Depends:
+ ${misc:Pre-Depends},
+Depends:
+ libopencv-flann3.1 (= ${binary:Version}),
+ libopencv-highgui3.1 (= ${binary:Version}),
+ libopencv-ml3.1 (= ${binary:Version}),
+ ${misc:Depends},
+ ${shlibs:Depends},
 Description: computer vision Feature Detection and Descriptor Extraction library
  This package contains the OpenCV (Open Computer Vision) Feature Detection
  and Descriptor Extraction runtime libraries.
@@ -596,8 +680,9 @@ Package: libopencv-ts-dev
 Section: libdevel
 Architecture: any
 Multi-Arch: same
-Depends: ${misc:Depends},
-	libopencv-core-dev (= ${binary:Version})
+Depends:
+ libopencv-core-dev (= ${binary:Version}),
+ ${misc:Depends},
 Description: development files for TS library of OpenCV (Open Computer Vision)
  This package contains the header files and static library needed to compile
  applications that use OpenCV (Open Computer Vision) TS library.
@@ -616,9 +701,10 @@ Package: libopencv-photo-dev
 Section: libdevel
 Architecture: any
 Multi-Arch: same
-Depends: ${misc:Depends},
-	libopencv-imgproc-dev (= ${binary:Version}),
-	libopencv-photo3.1 (= ${binary:Version})
+Depends:
+ libopencv-imgproc-dev (= ${binary:Version}),
+ libopencv-photo3.1 (= ${binary:Version}),
+ ${misc:Depends},
 Description: development files for libopencv-photo3.1
  This package contains the header files and static library needed to compile
  applications that use OpenCV (Open Computer Vision) computational photography
@@ -638,9 +724,12 @@ Package: libopencv-photo3.1
 Section: libs
 Architecture: any
 Multi-Arch: same
-Pre-Depends: ${misc:Pre-Depends}
-Depends: ${shlibs:Depends}, ${misc:Depends},
-	libopencv-imgproc3.1 (= ${binary:Version})
+Pre-Depends:
+ ${misc:Pre-Depends},
+Depends:
+ libopencv-imgproc3.1 (= ${binary:Version}),
+ ${misc:Depends},
+ ${shlibs:Depends},
 Description: computer vision computational photography library
  This package contains the OpenCV (Open Computer Vision) computational
  photography runtime libraries.
@@ -659,11 +748,12 @@ Package: libopencv-videostab-dev
 Section: libdevel
 Architecture: any
 Multi-Arch: same
-Depends: ${misc:Depends},
-	libopencv-calib3d-dev (= ${binary:Version}),
-	libopencv-video-dev (= ${binary:Version}),
-	libopencv-photo-dev (= ${binary:Version}),
-	libopencv-videostab3.1 (= ${binary:Version})
+Depends:
+ libopencv-calib3d-dev (= ${binary:Version}),
+ libopencv-photo-dev (= ${binary:Version}),
+ libopencv-video-dev (= ${binary:Version}),
+ libopencv-videostab3.1 (= ${binary:Version}),
+ ${misc:Depends},
 Description: development files for libopencv-videostab3.1
  This package contains the header files and static library needed to compile
  applications that use OpenCV (Open Computer Vision) video stabilization
@@ -683,11 +773,14 @@ Package: libopencv-videostab3.1
 Section: libs
 Architecture: any
 Multi-Arch: same
-Pre-Depends: ${misc:Pre-Depends}
-Depends: ${shlibs:Depends}, ${misc:Depends},
-	libopencv-calib3d3.1 (= ${binary:Version}),
-	libopencv-video3.1 (= ${binary:Version}),
-	libopencv-photo3.1 (= ${binary:Version}),
+Pre-Depends:
+ ${misc:Pre-Depends},
+Depends:
+ libopencv-calib3d3.1 (= ${binary:Version}),
+ libopencv-photo3.1 (= ${binary:Version}),
+ libopencv-video3.1 (= ${binary:Version}),
+ ${misc:Depends},
+ ${shlibs:Depends},
 Description: computer vision video stabilization library
  This package contains the OpenCV (Open Computer Vision) video stabilization
  runtime libraries.
@@ -706,10 +799,11 @@ Package: libopencv-stitching-dev
 Section: libdevel
 Architecture: any
 Multi-Arch: same
-Depends: ${misc:Depends},
-	libopencv-calib3d-dev (= ${binary:Version}),
-	libopencv-objdetect-dev (= ${binary:Version}),
-	libopencv-stitching3.1 (= ${binary:Version})
+Depends:
+ libopencv-calib3d-dev (= ${binary:Version}),
+ libopencv-objdetect-dev (= ${binary:Version}),
+ libopencv-stitching3.1 (= ${binary:Version}),
+ ${misc:Depends},
 Description: development files for libopencv-stitching3.1
  This package contains the header files and static library needed to compile
  applications that use OpenCV (Open Computer Vision) image stitching library.
@@ -728,10 +822,13 @@ Package: libopencv-stitching3.1
 Section: libs
 Architecture: any
 Multi-Arch: same
-Pre-Depends: ${misc:Pre-Depends}
-Depends: ${shlibs:Depends}, ${misc:Depends},
-	libopencv-calib3d3.1 (= ${binary:Version}),
-	libopencv-objdetect3.1 (= ${binary:Version})
+Pre-Depends:
+ ${misc:Pre-Depends},
+Depends:
+ libopencv-calib3d3.1 (= ${binary:Version}),
+ libopencv-objdetect3.1 (= ${binary:Version}),
+ ${misc:Depends},
+ ${shlibs:Depends},
 Description: computer vision image stitching library
  This package contains the OpenCV (Open Computer Vision) image stitching
  runtime libraries.
@@ -750,9 +847,10 @@ Package: libopencv-shape-dev
 Section: libdevel
 Architecture: any
 Multi-Arch: same
-Depends: ${misc:Depends},
-	libopencv-shape3.1 (= ${binary:Version}),
-	libopencv-video-dev (= ${binary:Version})
+Depends:
+ libopencv-shape3.1 (= ${binary:Version}),
+ libopencv-video-dev (= ${binary:Version}),
+ ${misc:Depends},
 Description: development files for libopencv-shape3.1
  This package contains the header files and static library needed to compile
  applications that use OpenCV (Open Computer Vision) shape descriptors and
@@ -772,9 +870,12 @@ Package: libopencv-shape3.1
 Section: libs
 Architecture: any
 Multi-Arch: same
-Pre-Depends: ${misc:Pre-Depends}
-Depends: ${shlibs:Depends}, ${misc:Depends},
-	libopencv-video3.1 (= ${binary:Version})
+Pre-Depends:
+ ${misc:Pre-Depends},
+Depends:
+ libopencv-video3.1 (= ${binary:Version}),
+ ${misc:Depends},
+ ${shlibs:Depends},
 Description: computer vision shape descriptors and matchers library
  This package contains the OpenCV (Open Computer Vision) shape descriptors
  and matchers runtime libraries.
@@ -793,10 +894,11 @@ Package: libopencv-superres-dev
 Section: libdevel
 Architecture: any
 Multi-Arch: same
-Depends: ${misc:Depends},
-	libopencv-videoio-dev (= ${binary:Version}),
-	libopencv-video-dev (= ${binary:Version}),
-	libopencv-superres3.1 (= ${binary:Version})
+Depends:
+ libopencv-superres3.1 (= ${binary:Version}),
+ libopencv-video-dev (= ${binary:Version}),
+ libopencv-videoio-dev (= ${binary:Version}),
+ ${misc:Depends},
 Description: development files for libopencv-superres3.1
  This package contains the header files and static library needed to compile
  applications that use OpenCV (Open Computer Vision) Super Resolution library.
@@ -815,10 +917,13 @@ Package: libopencv-superres3.1
 Section: libs
 Architecture: any
 Multi-Arch: same
-Pre-Depends: ${misc:Pre-Depends}
-Depends: ${shlibs:Depends}, ${misc:Depends},
-	libopencv-videoio3.1 (= ${binary:Version}),
-	libopencv-video3.1 (= ${binary:Version})
+Pre-Depends:
+ ${misc:Pre-Depends},
+Depends:
+ libopencv-video3.1 (= ${binary:Version}),
+ libopencv-videoio3.1 (= ${binary:Version}),
+ ${misc:Depends},
+ ${shlibs:Depends},
 Description: computer vision Super Resolution library
  This package contains the OpenCV (Open Computer Vision) Super Resolution
  runtime libraries.
@@ -837,9 +942,10 @@ Package: libopencv-viz-dev
 Section: libdevel
 Architecture: any
 Multi-Arch: same
-Depends: ${misc:Depends},
-	libopencv-core-dev (= ${binary:Version}),
-	libopencv-viz3.1 (= ${binary:Version})
+Depends:
+ libopencv-core-dev (= ${binary:Version}),
+ libopencv-viz3.1 (= ${binary:Version}),
+ ${misc:Depends},
 Description: development files for libopencv-viz3.1
  This package contains the header files and static library needed to compile
  applications that use OpenCV (Open Computer Vision) 3D data visualization
@@ -859,9 +965,13 @@ Package: libopencv-viz3.1
 Section: libs
 Architecture: any
 Multi-Arch: same
-Pre-Depends: ${misc:Pre-Depends}
-Depends: ${shlibs:Depends}, ${misc:Depends},
-	libopencv-core3.1 (= ${binary:Version})
+Pre-Depends:
+ ${misc:Pre-Depends},
+Depends:
+ libopencv-core3.1 (= ${binary:Version}),
+ libvtk6.3,
+ ${misc:Depends},
+ ${shlibs:Depends},
 Description: computer vision 3D data visualization library
  This package contains the OpenCV (Open Computer Vision) 3D data visualization
  runtime libraries.
@@ -876,14 +986,122 @@ Description: computer vision 3D data visualization library
  analysis, structural analysis, motion analysis and object tracking, object
  recognition, camera calibration and 3D reconstruction.
 
+Package: libopencv-contrib-dev
+Section: libdevel
+Architecture: any
+Multi-Arch: same
+Depends:
+ libopencv-calib3d-dev (= ${binary:Version}),
+ libopencv-contrib3.1 (= ${binary:Version}),
+ libopencv-core-dev (= ${binary:Version}),
+ libopencv-features2d-dev (= ${binary:Version}),
+ libopencv-flann-dev (= ${binary:Version}),
+ libopencv-highgui-dev (= ${binary:Version}),
+ libopencv-imgcodecs-dev (= ${binary:Version}),
+ libopencv-imgproc-dev (= ${binary:Version}),
+ libopencv-ml-dev (= ${binary:Version}),
+ libopencv-objdetect-dev (= ${binary:Version}),
+ libopencv-photo-dev (= ${binary:Version}),
+ libopencv-shape-dev (= ${binary:Version}),
+ libopencv-stitching-dev (= ${binary:Version}),
+ libopencv-superres-dev (= ${binary:Version}),
+ libopencv-video-dev (= ${binary:Version}),
+ libopencv-videoio-dev (= ${binary:Version}),
+ libopencv-videostab-dev (= ${binary:Version}),
+ libopencv-viz-dev (= ${binary:Version}),
+ ${misc:Depends},
+Description: development files for libopencv-contrib3.1
+ This package contains the header files and static library needed to compile
+ applications that use OpenCV (Open Computer Vision) contrib library.
+ .
+ The Open Computer Vision Library is a collection of algorithms and sample
+ code for various computer vision problems. The library is compatible with
+ IPL (Intel's Image Processing Library) and, if available, can use IPP
+ (Intel's Integrated Performance Primitives) for better performance.
+ .
+ OpenCV provides low level portable data types and operators, and a set
+ of high level functionalities for video acquisition, image processing and
+ analysis, structural analysis, motion analysis and object tracking, object
+ recognition, camera calibration and 3D reconstruction.
+
+Package: libopencv-contrib3.1
+Section: libs
+Architecture: any
+Multi-Arch: same
+Pre-Depends:
+ ${misc:Pre-Depends},
+Depends:
+ libopencv-calib3d3.1 (= ${binary:Version}),
+ libopencv-core3.1 (= ${binary:Version}),
+ libopencv-features2d3.1 (= ${binary:Version}),
+ libopencv-flann3.1 (= ${binary:Version}),
+ libopencv-highgui3.1 (= ${binary:Version}),
+ libopencv-imgcodecs3.1 (= ${binary:Version}),
+ libopencv-imgproc3.1 (= ${binary:Version}),
+ libopencv-ml3.1 (= ${binary:Version}),
+ libopencv-objdetect3.1 (= ${binary:Version}),
+ libopencv-photo3.1 (= ${binary:Version}),
+ libopencv-shape3.1 (= ${binary:Version}),
+ libopencv-stitching3.1 (= ${binary:Version}),
+ libopencv-superres3.1 (= ${binary:Version}),
+ libopencv-video3.1 (= ${binary:Version}),
+ libopencv-videoio3.1 (= ${binary:Version}),
+ libopencv-videostab3.1 (= ${binary:Version}),
+ libopencv-viz3.1 (= ${binary:Version}),
+ ${misc:Depends},
+ ${shlibs:Depends},
+Description: computer vision contrlib library
+ This package contains the OpenCV (Open Computer Vision) opencv_contrib runtime
+ libraries. This package contain following contrlib libraries:
+ .
+   - aruco
+   - bgsegm
+   - bioinspired
+   - ccalib
+   - dnn
+   - dpm
+   - fuzzy
+   - hdf
+   - line_descriptor
+   - optflow
+   - plot
+   - reg
+   - saliency
+   - stereo
+   - structured_light
+   - rgbd
+   - surface_matching
+   - tracking
+   - datasets
+   - text
+   - face
+   - ximgproc
+   - xobjdetect
+   - xphoto
+ .
+ The Open Computer Vision Library is a collection of algorithms and sample
+ code for various computer vision problems. The library is compatible with
+ IPL (Intel's Image Processing Library) and, if available, can use IPP
+ (Intel's Integrated Performance Primitives) for better performance.
+ .
+ OpenCV provides low level portable data types and operators, and a set
+ of high level functionalities for video acquisition, image processing and
+ analysis, structural analysis, motion analysis and object tracking, object
+ recognition, camera calibration and 3D reconstruction.
+
 Package: libopencv3.1-java
 Section: java
 Architecture: all
-Depends: ${java:Depends}, ${misc:Depends},
-	libopencv3.1-jni (>= ${binary:Version})
-Recommends: ${java:Recommends}
-Replaces: libopencv2.4-java 
-Breaks: libopencv2.4-java
+Depends:
+ libopencv3.1-jni (>= ${binary:Version}),
+ ${java:Depends},
+ ${misc:Depends},
+Recommends:
+ ${java:Recommends},
+Breaks:
+ libopencv2.4-java,
+Replaces:
+ libopencv2.4-java,
 Description: Java bindings for the computer vision library
  This package contains Java bindings for the OpenCV (Open Computer Vision)
  library.
@@ -900,13 +1118,15 @@ Description: Java bindings for the computer vision library
 
 Package: libopencv3.1-jni
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends},
-	libopencv-calib3d3.1 (= ${binary:Version}),
-	libopencv-ml3.1 (= ${binary:Version}),
-	libopencv-objdetect3.1 (= ${binary:Version}),
-	libopencv-highgui3.1 (= ${binary:Version}),
-	libopencv-video3.1 (= ${binary:Version}),
-	libopencv-photo3.1 (= ${binary:Version})
+Depends:
+ libopencv-calib3d3.1 (= ${binary:Version}),
+ libopencv-highgui3.1 (= ${binary:Version}),
+ libopencv-ml3.1 (= ${binary:Version}),
+ libopencv-objdetect3.1 (= ${binary:Version}),
+ libopencv-photo3.1 (= ${binary:Version}),
+ libopencv-video3.1 (= ${binary:Version}),
+ ${misc:Depends},
+ ${shlibs:Depends},
 Description: Java jni library for the computer vision library
  This package contains Java jni library for the OpenCV (Open Computer Vision)
  library.
@@ -924,27 +1144,26 @@ Description: Java jni library for the computer vision library
 Package: python-opencv
 Section: python
 Architecture: any
-Depends: ${python:Depends}, ${shlibs:Depends}, ${misc:Depends}, python-numpy-abi9,
-	python-numpy (>= 1:1.6.1),
-	libopencv-viz3.1 (= ${binary:Version}),
-	libopencv-shape3.1 (= ${binary:Version}),
-	libopencv-superres3.1 (= ${binary:Version}),
-	libopencv-stitching3.1 (= ${binary:Version}),
-	libopencv-videostab3.1 (= ${binary:Version}),
-	libopencv-objdetect3.1 (= ${binary:Version}),
-	libopencv-photo3.1 (= ${binary:Version}),
-	libopencv-video3.1 (= ${binary:Version}),
-	libopencv-calib3d3.1 (= ${binary:Version}),
-	libopencv-features2d3.1 (= ${binary:Version}),
-	libopencv-flann3.1 (= ${binary:Version}),
-	libopencv-ml3.1 (= ${binary:Version}),
-	libopencv-highgui3.1 (= ${binary:Version}),
-	libopencv-videoio3.1 (= ${binary:Version}),
-	libopencv-imgcodecs3.1 (= ${binary:Version}),
-	libopencv-imgproc3.1 (= ${binary:Version})
-Provides: ${python:Provides}
-Replaces: python2.3-opencv (<= 0.9.7-3)
-Conflicts: python2.3-opencv (<= 0.9.7-3)
+Depends:
+ libopencv-calib3d3.1 (= ${binary:Version}),
+ libopencv-features2d3.1 (= ${binary:Version}),
+ libopencv-flann3.1 (= ${binary:Version}),
+ libopencv-highgui3.1 (= ${binary:Version}),
+ libopencv-imgcodecs3.1 (= ${binary:Version}),
+ libopencv-imgproc3.1 (= ${binary:Version}),
+ libopencv-ml3.1 (= ${binary:Version}),
+ libopencv-objdetect3.1 (= ${binary:Version}),
+ libopencv-photo3.1 (= ${binary:Version}),
+ libopencv-shape3.1 (= ${binary:Version}),
+ libopencv-stitching3.1 (= ${binary:Version}),
+ libopencv-superres3.1 (= ${binary:Version}),
+ libopencv-video3.1 (= ${binary:Version}),
+ libopencv-videoio3.1 (= ${binary:Version}),
+ libopencv-videostab3.1 (= ${binary:Version}),
+ libopencv-viz3.1 (= ${binary:Version}),
+ ${misc:Depends},
+ ${python:Depends},
+ ${shlibs:Depends},
 Description: Python bindings for the computer vision library
  This package contains Python bindings for the OpenCV (Open Computer Vision)
  library.
@@ -959,3 +1178,39 @@ Description: Python bindings for the computer vision library
  analysis, structural analysis, motion analysis and object tracking, object
  recognition, camera calibration and 3D reconstruction.
 
+Package: python3-opencv
+Section: python
+Architecture: any
+Depends:
+ libopencv-calib3d3.1 (= ${binary:Version}),
+ libopencv-features2d3.1 (= ${binary:Version}),
+ libopencv-flann3.1 (= ${binary:Version}),
+ libopencv-highgui3.1 (= ${binary:Version}),
+ libopencv-imgcodecs3.1 (= ${binary:Version}),
+ libopencv-imgproc3.1 (= ${binary:Version}),
+ libopencv-ml3.1 (= ${binary:Version}),
+ libopencv-objdetect3.1 (= ${binary:Version}),
+ libopencv-photo3.1 (= ${binary:Version}),
+ libopencv-shape3.1 (= ${binary:Version}),
+ libopencv-stitching3.1 (= ${binary:Version}),
+ libopencv-superres3.1 (= ${binary:Version}),
+ libopencv-video3.1 (= ${binary:Version}),
+ libopencv-videoio3.1 (= ${binary:Version}),
+ libopencv-videostab3.1 (= ${binary:Version}),
+ libopencv-viz3.1 (= ${binary:Version}),
+ ${misc:Depends},
+ ${python3:Depends},
+ ${shlibs:Depends},
+Description: Python 3 bindings for the computer vision library
+ This package contains Python 3 bindings for the OpenCV (Open Computer Vision)
+ library.
+ .
+ The Open Computer Vision Library is a collection of algorithms and sample
+ code for various computer vision problems. The library is compatible with
+ IPL (Intel's Image Processing Library) and, if available, can use IPP
+ (Intel's Integrated Performance Primitives) for better performance.
+ .
+ OpenCV provides low level portable data types and operators, and a set
+ of high level functionalities for video acquisition, image processing and
+ analysis, structural analysis, motion analysis and object tracking, object
+ recognition, camera calibration and 3D reconstruction.
