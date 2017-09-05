@@ -6,3 +6,4 @@ mathjax
 change_jquery.js_path
 disable_dnn.patch
 fix_VFP_asm.patch
+replacement-of-non-dfsg-icons.patch 
