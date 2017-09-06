@@ -5,6 +5,8 @@ DEB_HOST_ARCH ?= $(shell dpkg-architecture -qDEB_HOST_ARCH)
 DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 DEB_HOST_ARCH_OS ?= $(shell dpkg-architecture -qDEB_HOST_ARCH_OS)
 
+export QT_SELECT=qt5
+
 BUILDDIR = obj-$(DEB_HOST_MULTIARCH)
 
 # SSE options
