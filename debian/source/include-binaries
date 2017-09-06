@@ -1,0 +1,13 @@
+debian/patches/replacement-of-non-dfsg-icons.patch
+modules/highgui/src/files_Qt/Icons/48x48/document-save.png
+modules/highgui/src/files_Qt/Icons/48x48/go-down.png
+modules/highgui/src/files_Qt/Icons/48x48/go-next.png
+modules/highgui/src/files_Qt/Icons/48x48/go-previous.png
+modules/highgui/src/files_Qt/Icons/48x48/go-up.png
+modules/highgui/src/files_Qt/Icons/48x48/search.png
+modules/highgui/src/files_Qt/Icons/48x48/search.xcf
+modules/highgui/src/files_Qt/Icons/48x48/tool_brush.png
+modules/highgui/src/files_Qt/Icons/48x48/view-preview.png
+modules/highgui/src/files_Qt/Icons/48x48/zoom-in.png
+modules/highgui/src/files_Qt/Icons/48x48/zoom-out.png
+modules/highgui/src/files_Qt/Icons/48x48/zoom.png
