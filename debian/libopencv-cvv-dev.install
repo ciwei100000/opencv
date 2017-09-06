@@ -1,0 +1,4 @@
+usr/include/opencv2/cvv.hpp
+usr/include/opencv2/cvv/*
+usr/lib/*/libopencv_cvv.a
+usr/lib/*/libopencv_cvv.so
