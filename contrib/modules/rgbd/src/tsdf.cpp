@@ -12,63 +12,35 @@ namespace cv {
 
 namespace kinfu {
 
-// TODO: Optimization possible:
-// * volumeType can be FP16
-// * weight can be int16
-typedef float volumeType;
-struct Voxel
+static inline v_float32x4 tsdfToFloat_INTR(const v_int32x4& num)
 {
-    volumeType v;
-    int weight;
-};
-typedef Vec<uchar, sizeof(Voxel)> VecT;
+    v_float32x4 num128 = v_setall_f32(-1.f / 128.f);
+    return v_cvt_f32(num) * num128;
+}
 
-
-class TSDFVolumeCPU : public TSDFVolume
+static inline TsdfType floatToTsdf(float num)
 {
-public:
-    // dimension in voxels, size in meters
-    TSDFVolumeCPU(Point3i _res, float _voxelSize, cv::Affine3f _pose, float _truncDist, int _maxWeight,
-                  float _raycastStepFactor, bool zFirstMemOrder = true);
+    //CV_Assert(-1 < num <= 1);
+    int8_t res = int8_t(num * (-128.f));
+    res = res ? res : (num < 0 ? 1 : -1);
+    return res;
+}
 
-    virtual void integrate(InputArray _depth, float depthFactor, cv::Affine3f cameraPose, cv::kinfu::Intr intrinsics) override;
-    virtual void raycast(cv::Affine3f cameraPose, cv::kinfu::Intr intrinsics, cv::Size frameSize,
-                         cv::OutputArray points, cv::OutputArray normals) const override;
-
-    virtual void fetchNormals(cv::InputArray points, cv::OutputArray _normals) const override;
-    virtual void fetchPointsNormals(cv::OutputArray points, cv::OutputArray normals) const override;
-
-    virtual void reset() override;
-
-    volumeType interpolateVoxel(cv::Point3f p) const;
-    Point3f getNormalVoxel(cv::Point3f p) const;
-
-#if USE_INTRINSICS
-    volumeType interpolateVoxel(const v_float32x4& p) const;
-    v_float32x4 getNormalVoxel(const v_float32x4& p) const;
-#endif
-
-    // See zFirstMemOrder arg of parent class constructor
-    // for the array layout info
-    // Consist of Voxel elements
-    Mat volume;
-};
-
-
-TSDFVolume::TSDFVolume(Point3i _res, float _voxelSize, Affine3f _pose, float _truncDist, int _maxWeight,
-                       float _raycastStepFactor, bool zFirstMemOrder) :
-    voxelSize(_voxelSize),
-    voxelSizeInv(1.f/_voxelSize),
-    volResolution(_res),
-    maxWeight(_maxWeight),
-    pose(_pose),
-    raycastStepFactor(_raycastStepFactor)
+static inline float tsdfToFloat(TsdfType num)
 {
+    return float(num) * (-1.f / 128.f);
+}
+
+TSDFVolume::TSDFVolume(float _voxelSize, Matx44f _pose, float _raycastStepFactor, float _truncDist,
+                       int _maxWeight, Point3i _resolution, bool zFirstMemOrder)
+    : Volume(_voxelSize, _pose, _raycastStepFactor),
+      volResolution(_resolution),
+      maxWeight( WeightType(_maxWeight) )
+{
+    CV_Assert(_maxWeight < 255);
     // Unlike original code, this should work with any volume size
     // Not only when (x,y,z % 32) == 0
-
-    volSize = Point3f(volResolution) * voxelSize;
-
+    volSize   = Point3f(volResolution) * voxelSize;
     truncDist = std::max(_truncDist, 2.1f * voxelSize);
 
     // (xRes*yRes*zRes) array
@@ -103,11 +75,13 @@ TSDFVolume::TSDFVolume(Point3i _res, float _voxelSize, Affine3f _pose, float _tr
 }
 
 // dimension in voxels, size in meters
-TSDFVolumeCPU::TSDFVolumeCPU(Point3i _res, float _voxelSize, cv::Affine3f _pose, float _truncDist, int _maxWeight,
-                             float _raycastStepFactor, bool zFirstMemOrder) :
-    TSDFVolume(_res, _voxelSize, _pose, _truncDist, _maxWeight, _raycastStepFactor, zFirstMemOrder)
+TSDFVolumeCPU::TSDFVolumeCPU(float _voxelSize, cv::Matx44f _pose, float _raycastStepFactor,
+                             float _truncDist, int _maxWeight, Vec3i _resolution,
+                             bool zFirstMemOrder)
+    : TSDFVolume(_voxelSize, _pose, _raycastStepFactor, _truncDist, _maxWeight, _resolution,
+                 zFirstMemOrder)
 {
-    volume = Mat(1, volResolution.x * volResolution.y * volResolution.z, rawType<Voxel>());
+    volume = Mat(1, volResolution.x * volResolution.y * volResolution.z, rawType<TsdfVoxel>());
 
     reset();
 }
@@ -117,11 +91,30 @@ void TSDFVolumeCPU::reset()
 {
     CV_TRACE_FUNCTION();
 
-    volume.forEach<VecT>([](VecT& vv, const int* /* position */)
+    volume.forEach<VecTsdfVoxel>([](VecTsdfVoxel& vv, const int* /* position */)
     {
-        Voxel& v = reinterpret_cast<Voxel&>(vv);
-        v.v = 0; v.weight = 0;
+        TsdfVoxel& v = reinterpret_cast<TsdfVoxel&>(vv);
+        v.tsdf = floatToTsdf(0.0f); v.weight = 0;
     });
+}
+
+TsdfVoxel TSDFVolumeCPU::at(const cv::Vec3i& volumeIdx) const
+{
+    //! Out of bounds
+    if ((volumeIdx[0] >= volResolution.x || volumeIdx[0] < 0) ||
+        (volumeIdx[1] >= volResolution.y || volumeIdx[1] < 0) ||
+        (volumeIdx[2] >= volResolution.z || volumeIdx[2] < 0))
+    {
+        TsdfVoxel dummy;
+        dummy.tsdf   = floatToTsdf(1.0f);
+        dummy.weight = 0;
+        return dummy;
+    }
+
+    const TsdfVoxel* volData = volume.ptr<TsdfVoxel>();
+    int coordBase =
+        volumeIdx[0] * volDims[0] + volumeIdx[1] * volDims[1] + volumeIdx[2] * volDims[2];
+    return volData[coordBase];
 }
 
 // SIMD version of that code is manually inlined
@@ -177,7 +170,7 @@ static inline depthType bilinearDepth(const Depth& m, cv::Point2f pt)
             if(b10) return v10;
             if(b11) return v11;
         }
-        else if(nz == 2)
+        if(nz == 2)
         {
             if(b00 && b10) v01 = v00, v11 = v10;
             if(b01 && b11) v00 = v01, v10 = v11;
@@ -186,7 +179,7 @@ static inline depthType bilinearDepth(const Depth& m, cv::Point2f pt)
             if(b00 && b11) v01 = v10 = (v00 + v11)*0.5f;
             if(b01 && b10) v00 = v11 = (v01 + v10)*0.5f;
         }
-        else if(nz == 3)
+        if(nz == 3)
         {
             if(!b00) v00 = v10 + v01 - v11;
             if(!b01) v01 = v00 + v11 - v10;
@@ -202,19 +195,23 @@ static inline depthType bilinearDepth(const Depth& m, cv::Point2f pt)
 }
 #endif
 
+
+
 struct IntegrateInvoker : ParallelLoopBody
 {
-    IntegrateInvoker(TSDFVolumeCPU& _volume, const Depth& _depth, Intr intrinsics, cv::Affine3f cameraPose,
-                     float depthFactor) :
+    IntegrateInvoker(TSDFVolumeCPU& _volume, const Depth& _depth, const Intr& intrinsics,
+                    const cv::Matx44f& cameraPose, float depthFactor, Mat _pixNorms) :
         ParallelLoopBody(),
         volume(_volume),
         depth(_depth),
+        intr(intrinsics),
         proj(intrinsics.makeProjector()),
-        vol2cam(cameraPose.inv() * _volume.pose),
+        vol2cam(Affine3f(cameraPose.inv()) * _volume.pose),
         truncDistInv(1.f/_volume.truncDist),
-        dfac(1.f/depthFactor)
+        dfac(1.f/depthFactor),
+        pixNorms(_pixNorms)
     {
-        volDataStart = volume.volume.ptr<Voxel>();
+        volDataStart = volume.volume.ptr<TsdfVoxel>();
     }
 
 #if USE_INTRINSICS
@@ -231,10 +228,10 @@ struct IntegrateInvoker : ParallelLoopBody
 
         for(int x = range.start; x < range.end; x++)
         {
-            Voxel* volDataX = volDataStart + x*volume.volDims[0];
+            TsdfVoxel* volDataX = volDataStart + x*volume.volDims[0];
             for(int y = 0; y < volume.volResolution.y; y++)
             {
-                Voxel* volDataY = volDataX + y*volume.volDims[1];
+                TsdfVoxel* volDataY = volDataX + y*volume.volDims[1];
                 // optimization of camSpace transformation (vector addition instead of matmul at each z)
                 Point3f basePt = vol2cam*(Point3f((float)x, (float)y, 0)*volume.voxelSize);
                 v_float32x4 camSpacePt(basePt.x, basePt.y, basePt.z, 0);
@@ -246,19 +243,20 @@ struct IntegrateInvoker : ParallelLoopBody
                     if(zStepPt.z > 0)
                     {
                         startZ = baseZ;
-                        endZ = volume.volResolution.z;
+                        endZ   = volume.volResolution.z;
                     }
                     else
                     {
                         startZ = 0;
-                        endZ = baseZ;
+                        endZ   = baseZ;
                     }
                 }
                 else
                 {
-                    if(basePt.z > 0)
+                    if (basePt.z > 0)
                     {
-                        startZ = 0; endZ = volume.volResolution.z;
+                        startZ = 0;
+                        endZ   = volume.volResolution.z;
                     }
                     else
                     {
@@ -267,7 +265,7 @@ struct IntegrateInvoker : ParallelLoopBody
                     }
                 }
                 startZ = max(0, startZ);
-                endZ = min(volume.volResolution.z, endZ);
+                endZ   = min(volume.volResolution.z, endZ);
                 for(int z = startZ; z < endZ; z++)
                 {
                     // optimization of the following:
@@ -276,7 +274,6 @@ struct IntegrateInvoker : ParallelLoopBody
                     camSpacePt += zStep;
 
                     float zCamSpace = v_reinterpret_as_f32(v_rotate_right<2>(v_reinterpret_as_u32(camSpacePt))).get0();
-
                     if(zCamSpace <= 0.f)
                         continue;
 
@@ -298,11 +295,11 @@ struct IntegrateInvoker : ParallelLoopBody
                             continue;
 
                         // xi, yi = floor(pt)
-                        v_int32x4 ip = v_floor(pt);
+                        v_int32x4 ip      = v_floor(pt);
                         v_int32x4 ipshift = ip;
-                        int xi = ipshift.get0();
-                        ipshift = v_rotate_right<1>(ipshift);
-                        int yi = ipshift.get0();
+                        int xi            = ipshift.get0();
+                        ipshift           = v_rotate_right<1>(ipshift);
+                        int yi            = ipshift.get0();
 
                         const depthType* row0 = depth[yi+0];
                         const depthType* row1 = depth[yi+1];
@@ -319,38 +316,42 @@ struct IntegrateInvoker : ParallelLoopBody
                         if(v_check_all(vall > v_setzero_f32()))
                         {
                             v_float32x4 t = pt - v_cvt_f32(ip);
-                            float tx = t.get0();
+                            float tx      = t.get0();
                             t = v_reinterpret_as_f32(v_rotate_right<1>(v_reinterpret_as_u32(t)));
                             v_float32x4 ty = v_setall_f32(t.get0());
                             // vx is y-interpolated between rows 0 and 1
                             v_float32x4 vx = v001 + ty*(v101 - v001);
-                            float v0 = vx.get0();
+                            float v0       = vx.get0();
                             vx = v_reinterpret_as_f32(v_rotate_right<1>(v_reinterpret_as_u32(vx)));
                             float v1 = vx.get0();
-                            v = v0 + tx*(v1 - v0);
+                            v        = v0 + tx*(v1 - v0);
                         }
                         else
                             continue;
                     }
 
                     // norm(camPixVec) produces double which is too slow
-                    float pixNorm = sqrt(v_reduce_sum(camPixVec*camPixVec));
+                    int _u = (int) projected.get0();
+                    int _v = (int) v_rotate_right<1>(projected).get0();
+                    if (!(_u >= 0 && _u < depth.cols && _v >= 0 && _v < depth.rows))
+                        continue;
+                    float pixNorm = pixNorms.at<float>(_v, _u);
+                    // float pixNorm = sqrt(v_reduce_sum(camPixVec*camPixVec));
                     // difference between distances of point and of surface to camera
-                    volumeType sdf = pixNorm*(v*dfac - zCamSpace);
+                    float sdf = pixNorm*(v*dfac - zCamSpace);
                     // possible alternative is:
                     // kftype sdf = norm(camSpacePt)*(v*dfac/camSpacePt.z - 1);
-
                     if(sdf >= -volume.truncDist)
                     {
-                        volumeType tsdf = fmin(1.f, sdf * truncDistInv);
+                        TsdfType tsdf = floatToTsdf(fmin(1.f, sdf * truncDistInv));
 
-                        Voxel& voxel = volDataY[z*volume.volDims[2]];
-                        int& weight = voxel.weight;
-                        volumeType& value = voxel.v;
+                        TsdfVoxel& voxel = volDataY[z*volume.volDims[2]];
+                        WeightType& weight      = voxel.weight;
+                        TsdfType& value  = voxel.tsdf;
 
                         // update TSDF
-                        value = (value*weight+tsdf) / (weight + 1);
-                        weight = min(weight + 1, volume.maxWeight);
+                        value  = floatToTsdf((tsdfToFloat(value)*weight+ tsdfToFloat(tsdf)) / (weight + 1));
+                        weight = (weight + 1) < volume.maxWeight ? (weight + 1) : volume.maxWeight;
                     }
                 }
             }
@@ -361,38 +362,39 @@ struct IntegrateInvoker : ParallelLoopBody
     {
         for(int x = range.start; x < range.end; x++)
         {
-            Voxel* volDataX = volDataStart + x*volume.volDims[0];
+            TsdfVoxel* volDataX = volDataStart + x*volume.volDims[0];
             for(int y = 0; y < volume.volResolution.y; y++)
             {
-                Voxel* volDataY = volDataX+y*volume.volDims[1];
+                TsdfVoxel* volDataY = volDataX+y*volume.volDims[1];
                 // optimization of camSpace transformation (vector addition instead of matmul at each z)
-                Point3f basePt = vol2cam*(Point3f(x, y, 0)*volume.voxelSize);
+                Point3f basePt = vol2cam*(Point3f(float(x), float(y), 0.0f)*volume.voxelSize);
                 Point3f camSpacePt = basePt;
                 // zStep == vol2cam*(Point3f(x, y, 1)*voxelSize) - basePt;
+                // zStep == vol2cam*[Point3f(x, y, 1) - Point3f(x, y, 0)]*voxelSize
                 Point3f zStep = Point3f(vol2cam.matrix(0, 2),
                                         vol2cam.matrix(1, 2),
                                         vol2cam.matrix(2, 2))*volume.voxelSize;
-
                 int startZ, endZ;
                 if(abs(zStep.z) > 1e-5)
                 {
-                    int baseZ = -basePt.z / zStep.z;
+                    int baseZ = int(-basePt.z / zStep.z);
                     if(zStep.z > 0)
                     {
                         startZ = baseZ;
-                        endZ = volume.volResolution.z;
+                        endZ   = volume.volResolution.z;
                     }
                     else
                     {
                         startZ = 0;
-                        endZ = baseZ;
+                        endZ   = baseZ;
                     }
                 }
                 else
                 {
                     if(basePt.z > 0)
                     {
-                        startZ = 0; endZ = volume.volResolution.z;
+                        startZ = 0;
+                        endZ   = volume.volResolution.z;
                     }
                     else
                     {
@@ -401,14 +403,15 @@ struct IntegrateInvoker : ParallelLoopBody
                     }
                 }
                 startZ = max(0, startZ);
-                endZ = min(volume.volResolution.z, endZ);
-                for(int z = startZ; z < endZ; z++)
+                endZ   = min(volume.volResolution.z, endZ);
+
+                for (int z = startZ; z < endZ; z++)
                 {
                     // optimization of the following:
                     //Point3f volPt = Point3f(x, y, z)*volume.voxelSize;
                     //Point3f camSpacePt = vol2cam * volPt;
-                    camSpacePt += zStep;
 
+                    camSpacePt += zStep;
                     if(camSpacePt.z <= 0)
                         continue;
 
@@ -416,27 +419,31 @@ struct IntegrateInvoker : ParallelLoopBody
                     Point2f projected = proj(camSpacePt, camPixVec);
 
                     depthType v = bilinearDepth(depth, projected);
-                    if(v == 0)
+                    if (v == 0) {
                         continue;
+                    }
 
-                    // norm(camPixVec) produces double which is too slow
-                    float pixNorm = sqrt(camPixVec.dot(camPixVec));
+                    int _u = projected.x;
+                    int _v = projected.y;
+                    if (!(_u >= 0 && _u < depth.cols && _v >= 0 && _v < depth.rows))
+                        continue;
+                    float pixNorm = pixNorms.at<float>(_v, _u);
+
                     // difference between distances of point and of surface to camera
-                    volumeType sdf = pixNorm*(v*dfac - camSpacePt.z);
+                    float sdf = pixNorm*(v*dfac - camSpacePt.z);
                     // possible alternative is:
                     // kftype sdf = norm(camSpacePt)*(v*dfac/camSpacePt.z - 1);
-
                     if(sdf >= -volume.truncDist)
                     {
-                        volumeType tsdf = fmin(1.f, sdf * truncDistInv);
+                        TsdfType tsdf = floatToTsdf(fmin(1.f, sdf * truncDistInv));
 
-                        Voxel& voxel = volDataY[z*volume.volDims[2]];
-                        int& weight = voxel.weight;
-                        volumeType& value = voxel.v;
+                        TsdfVoxel& voxel = volDataY[z*volume.volDims[2]];
+                        WeightType& weight      = voxel.weight;
+                        TsdfType& value  = voxel.tsdf;
 
                         // update TSDF
-                        value = (value*weight+tsdf) / (weight + 1);
-                        weight = min(weight + 1, volume.maxWeight);
+                        value  = floatToTsdf((tsdfToFloat(value)*weight+ tsdfToFloat(tsdf)) / (weight + 1));
+                        weight = min(int(weight + 1), int(volume.maxWeight));
                     }
                 }
             }
@@ -446,73 +453,114 @@ struct IntegrateInvoker : ParallelLoopBody
 
     TSDFVolumeCPU& volume;
     const Depth& depth;
+    const Intr& intr;
     const Intr::Projector proj;
     const cv::Affine3f vol2cam;
     const float truncDistInv;
     const float dfac;
-    Voxel* volDataStart;
+    TsdfVoxel* volDataStart;
+    Mat pixNorms;
 };
 
+static cv::Mat preCalculationPixNorm(Depth depth, const Intr& intrinsics)
+{
+    int height = depth.rows;
+    int widht = depth.cols;
+    Point2f fl(intrinsics.fx, intrinsics.fy);
+    Point2f pp(intrinsics.cx, intrinsics.cy);
+    Mat pixNorm (height, widht, CV_32F);
+    std::vector<float> x(widht);
+    std::vector<float> y(height);
+    for (int i = 0; i < widht; i++)
+        x[i] = (i - pp.x) / fl.x;
+    for (int i = 0; i < height; i++)
+        y[i] = (i - pp.y) / fl.y;
+
+    for (int i = 0; i < height; i++)
+    {
+        for (int j = 0; j < widht; j++)
+        {
+            pixNorm.at<float>(i, j) = sqrtf(x[j] * x[j] + y[i] * y[i] + 1.0f);
+        }
+    }
+    return pixNorm;
+}
+
 // use depth instead of distance (optimization)
-void TSDFVolumeCPU::integrate(InputArray _depth, float depthFactor, cv::Affine3f cameraPose, Intr intrinsics)
+void TSDFVolumeCPU::integrate(InputArray _depth, float depthFactor, const cv::Matx44f& cameraPose,
+                              const Intr& intrinsics)
 {
     CV_TRACE_FUNCTION();
 
     CV_Assert(_depth.type() == DEPTH_TYPE);
+    CV_Assert(!_depth.empty());
     Depth depth = _depth.getMat();
+    if (!(frameParams[0] == depth.rows  && frameParams[1] == depth.cols &&
+        frameParams[2] == intrinsics.fx && frameParams[3] == intrinsics.fy &&
+        frameParams[4] == intrinsics.cx && frameParams[5] == intrinsics.cy))
+    {
+        frameParams[0] = (float)depth.rows; frameParams[1] = (float)depth.cols;
+        frameParams[2] = intrinsics.fx;     frameParams[3] = intrinsics.fy;
+        frameParams[4] = intrinsics.cx;     frameParams[5] = intrinsics.cy;
 
-    IntegrateInvoker ii(*this, depth, intrinsics, cameraPose, depthFactor);
+        pixNorms = preCalculationPixNorm(depth, intrinsics);
+    }
+
+    IntegrateInvoker ii(*this, depth, intrinsics, cameraPose, depthFactor, pixNorms);
     Range range(0, volResolution.x);
     parallel_for_(range, ii);
 }
 
 #if USE_INTRINSICS
 // all coordinate checks should be done in inclosing cycle
-inline volumeType TSDFVolumeCPU::interpolateVoxel(Point3f _p) const
+inline float TSDFVolumeCPU::interpolateVoxel(Point3f _p) const
 {
     v_float32x4 p(_p.x, _p.y, _p.z, 0);
     return interpolateVoxel(p);
 }
 
-inline volumeType TSDFVolumeCPU::interpolateVoxel(const v_float32x4& p) const
+inline float TSDFVolumeCPU::interpolateVoxel(const v_float32x4& p) const
 {
     // tx, ty, tz = floor(p)
-    v_int32x4 ip = v_floor(p);
+    v_int32x4 ip  = v_floor(p);
     v_float32x4 t = p - v_cvt_f32(ip);
-    float tx = t.get0();
-    t = v_reinterpret_as_f32(v_rotate_right<1>(v_reinterpret_as_u32(t)));
-    float ty = t.get0();
-    t = v_reinterpret_as_f32(v_rotate_right<1>(v_reinterpret_as_u32(t)));
-    float tz = t.get0();
+    float tx      = t.get0();
+    t             = v_reinterpret_as_f32(v_rotate_right<1>(v_reinterpret_as_u32(t)));
+    float ty      = t.get0();
+    t             = v_reinterpret_as_f32(v_rotate_right<1>(v_reinterpret_as_u32(t)));
+    float tz      = t.get0();
 
     int xdim = volDims[0], ydim = volDims[1], zdim = volDims[2];
-    const Voxel* volData = volume.ptr<Voxel>();
+    const TsdfVoxel* volData = volume.ptr<TsdfVoxel>();
 
-    int ix = ip.get0(); ip = v_rotate_right<1>(ip);
-    int iy = ip.get0(); ip = v_rotate_right<1>(ip);
+    int ix = ip.get0();
+    ip     = v_rotate_right<1>(ip);
+    int iy = ip.get0();
+    ip     = v_rotate_right<1>(ip);
     int iz = ip.get0();
 
     int coordBase = ix*xdim + iy*ydim + iz*zdim;
 
-    volumeType vx[8];
+    TsdfType vx[8];
     for(int i = 0; i < 8; i++)
-        vx[i] = volData[neighbourCoords[i] + coordBase].v;
+        vx[i] = volData[neighbourCoords[i] + coordBase].tsdf;
 
-    v_float32x4 v0246(vx[0], vx[2], vx[4], vx[6]), v1357(vx[1], vx[3], vx[5], vx[7]);
+    v_float32x4 v0246 = tsdfToFloat_INTR(v_int32x4(vx[0], vx[2], vx[4], vx[6]));
+    v_float32x4 v1357 = tsdfToFloat_INTR(v_int32x4(vx[1], vx[3], vx[5], vx[7]));
     v_float32x4 vxx = v0246 + v_setall_f32(tz)*(v1357 - v0246);
 
     v_float32x4 v00_10 = vxx;
     v_float32x4 v01_11 = v_reinterpret_as_f32(v_rotate_right<1>(v_reinterpret_as_u32(vxx)));
 
     v_float32x4 v0_1 = v00_10 + v_setall_f32(ty)*(v01_11 - v00_10);
-    float v0 = v0_1.get0();
-    v0_1 = v_reinterpret_as_f32(v_rotate_right<2>(v_reinterpret_as_u32(v0_1)));
-    float v1 = v0_1.get0();
+    float v0         = v0_1.get0();
+    v0_1             = v_reinterpret_as_f32(v_rotate_right<2>(v_reinterpret_as_u32(v0_1)));
+    float v1         = v0_1.get0();
 
     return v0 + tx*(v1 - v0);
 }
 #else
-inline volumeType TSDFVolumeCPU::interpolateVoxel(Point3f p) const
+inline float TSDFVolumeCPU::interpolateVoxel(Point3f p) const
 {
     int xdim = volDims[0], ydim = volDims[1], zdim = volDims[2];
 
@@ -525,21 +573,22 @@ inline volumeType TSDFVolumeCPU::interpolateVoxel(Point3f p) const
     float tz = p.z - iz;
 
     int coordBase = ix*xdim + iy*ydim + iz*zdim;
-    const Voxel* volData = volume.ptr<Voxel>();
+    const TsdfVoxel* volData = volume.ptr<TsdfVoxel>();
 
-    volumeType vx[8];
-    for(int i = 0; i < 8; i++)
-        vx[i] = volData[neighbourCoords[i] + coordBase].v;
+    float vx[8];
+    for (int i = 0; i < 8; i++)
+        vx[i] = tsdfToFloat(volData[neighbourCoords[i] + coordBase].tsdf);
 
-    volumeType v00 = vx[0] + tz*(vx[1] - vx[0]);
-    volumeType v01 = vx[2] + tz*(vx[3] - vx[2]);
-    volumeType v10 = vx[4] + tz*(vx[5] - vx[4]);
-    volumeType v11 = vx[6] + tz*(vx[7] - vx[6]);
+    float v00 = vx[0] + tz*(vx[1] - vx[0]);
+    float v01 = vx[2] + tz*(vx[3] - vx[2]);
+    float v10 = vx[4] + tz*(vx[5] - vx[4]);
+    float v11 = vx[6] + tz*(vx[7] - vx[6]);
 
-    volumeType v0 = v00 + ty*(v01 - v00);
-    volumeType v1 = v10 + ty*(v11 - v10);
+    float v0 = v00 + ty*(v01 - v00);
+    float v1 = v10 + ty*(v11 - v10);
 
     return v0 + tx*(v1 - v0);
+
 }
 #endif
 
@@ -563,16 +612,16 @@ inline v_float32x4 TSDFVolumeCPU::getNormalVoxel(const v_float32x4& p) const
                    ))
         return nanv;
 
-    v_int32x4 ip = v_floor(p);
+    v_int32x4 ip  = v_floor(p);
     v_float32x4 t = p - v_cvt_f32(ip);
-    float tx = t.get0();
-    t = v_reinterpret_as_f32(v_rotate_right<1>(v_reinterpret_as_u32(t)));
-    float ty = t.get0();
-    t = v_reinterpret_as_f32(v_rotate_right<1>(v_reinterpret_as_u32(t)));
-    float tz = t.get0();
+    float tx      = t.get0();
+    t             = v_reinterpret_as_f32(v_rotate_right<1>(v_reinterpret_as_u32(t)));
+    float ty      = t.get0();
+    t             = v_reinterpret_as_f32(v_rotate_right<1>(v_reinterpret_as_u32(t)));
+    float tz      = t.get0();
 
     const int xdim = volDims[0], ydim = volDims[1], zdim = volDims[2];
-    const Voxel* volData = volume.ptr<Voxel>();
+    const TsdfVoxel* volData = volume.ptr<TsdfVoxel>();
 
     int ix = ip.get0(); ip = v_rotate_right<1>(ip);
     int iy = ip.get0(); ip = v_rotate_right<1>(ip);
@@ -585,36 +634,38 @@ inline v_float32x4 TSDFVolumeCPU::getNormalVoxel(const v_float32x4& p) const
     for(int c = 0; c < 3; c++)
     {
         const int dim = volDims[c];
-        float& nv = an[c];
+        float& nv     = an[c];
 
-        volumeType vx[8];
+        TsdfType vx[8];
         for(int i = 0; i < 8; i++)
-            vx[i] = volData[neighbourCoords[i] + coordBase + 1*dim].v -
-                    volData[neighbourCoords[i] + coordBase - 1*dim].v;
+            vx[i] = volData[neighbourCoords[i] + coordBase + 1*dim].tsdf -
+                    volData[neighbourCoords[i] + coordBase - 1*dim].tsdf;
 
-        v_float32x4 v0246(vx[0], vx[2], vx[4], vx[6]), v1357(vx[1], vx[3], vx[5], vx[7]);
+        v_float32x4 v0246 = tsdfToFloat_INTR(v_int32x4(vx[0], vx[2], vx[4], vx[6]));
+        v_float32x4 v1357 = tsdfToFloat_INTR(v_int32x4(vx[1], vx[3], vx[5], vx[7]));
         v_float32x4 vxx = v0246 + v_setall_f32(tz)*(v1357 - v0246);
 
         v_float32x4 v00_10 = vxx;
         v_float32x4 v01_11 = v_reinterpret_as_f32(v_rotate_right<1>(v_reinterpret_as_u32(vxx)));
 
         v_float32x4 v0_1 = v00_10 + v_setall_f32(ty)*(v01_11 - v00_10);
-        float v0 = v0_1.get0();
-        v0_1 = v_reinterpret_as_f32(v_rotate_right<2>(v_reinterpret_as_u32(v0_1)));
-        float v1 = v0_1.get0();
+        float v0         = v0_1.get0();
+        v0_1             = v_reinterpret_as_f32(v_rotate_right<2>(v_reinterpret_as_u32(v0_1)));
+        float v1         = v0_1.get0();
 
         nv = v0 + tx*(v1 - v0);
     }
 
-    v_float32x4 n = v_load_aligned(an);
-    v_float32x4 invNorm = v_invsqrt(v_setall_f32(v_reduce_sum(n*n)));
-    return n*invNorm;
+    v_float32x4 n       = v_load_aligned(an);
+    v_float32x4 Norm = v_sqrt(v_setall_f32(v_reduce_sum(n*n)));
+
+    return Norm.get0() < 0.0001f ? nanv : n/Norm;
 }
 #else
 inline Point3f TSDFVolumeCPU::getNormalVoxel(Point3f p) const
 {
     const int xdim = volDims[0], ydim = volDims[1], zdim = volDims[2];
-    const Voxel* volData = volume.ptr<Voxel>();
+    const TsdfVoxel* volData = volume.ptr<TsdfVoxel>();
 
     if(p.x < 1 || p.x >= volResolution.x - 2 ||
        p.y < 1 || p.y >= volResolution.y - 2 ||
@@ -637,31 +688,33 @@ inline Point3f TSDFVolumeCPU::getNormalVoxel(Point3f p) const
         const int dim = volDims[c];
         float& nv = an[c];
 
-        volumeType vx[8];
+        float vx[8];
         for(int i = 0; i < 8; i++)
-            vx[i] = volData[neighbourCoords[i] + coordBase + 1*dim].v -
-                    volData[neighbourCoords[i] + coordBase - 1*dim].v;
+            vx[i] = tsdfToFloat(volData[neighbourCoords[i] + coordBase + 1*dim].tsdf -
+                                volData[neighbourCoords[i] + coordBase - 1*dim].tsdf);
 
-        volumeType v00 = vx[0] + tz*(vx[1] - vx[0]);
-        volumeType v01 = vx[2] + tz*(vx[3] - vx[2]);
-        volumeType v10 = vx[4] + tz*(vx[5] - vx[4]);
-        volumeType v11 = vx[6] + tz*(vx[7] - vx[6]);
+        float v00 = vx[0] + tz*(vx[1] - vx[0]);
+        float v01 = vx[2] + tz*(vx[3] - vx[2]);
+        float v10 = vx[4] + tz*(vx[5] - vx[4]);
+        float v11 = vx[6] + tz*(vx[7] - vx[6]);
 
-        volumeType v0 = v00 + ty*(v01 - v00);
-        volumeType v1 = v10 + ty*(v11 - v10);
+        float v0 = v00 + ty*(v01 - v00);
+        float v1 = v10 + ty*(v11 - v10);
 
         nv = v0 + tx*(v1 - v0);
     }
 
-    return normalize(an);
+    float nv = sqrt(an[0] * an[0] +
+                    an[1] * an[1] +
+                    an[2] * an[2]);
+    return nv < 0.0001f ? nan3 : an / nv;
 }
 #endif
 
-
 struct RaycastInvoker : ParallelLoopBody
 {
-    RaycastInvoker(Points& _points, Normals& _normals, Affine3f cameraPose,
-                   Intr intrinsics, const TSDFVolumeCPU& _volume) :
+    RaycastInvoker(Points& _points, Normals& _normals, const Matx44f& cameraPose,
+                  const Intr& intrinsics, const TSDFVolumeCPU& _volume) :
         ParallelLoopBody(),
         points(_points),
         normals(_normals),
@@ -674,8 +727,8 @@ struct RaycastInvoker : ParallelLoopBody
                                         volume.voxelSize,
                                         volume.voxelSize)),
         boxMin(),
-        cam2vol(volume.pose.inv() * cameraPose),
-        vol2cam(cameraPose.inv() * volume.pose),
+        cam2vol(volume.pose.inv() * Affine3f(cameraPose)),
+        vol2cam(Affine3f(cameraPose.inv()) * volume.pose),
         reproj(intrinsics.makeReprojector())
     {  }
 
@@ -686,8 +739,8 @@ struct RaycastInvoker : ParallelLoopBody
         const v_float32x4 vcxy(reproj.cx, reproj.cy, 0, 0);
 
         const float (&cm)[16] = cam2vol.matrix.val;
-        const v_float32x4 camRot0(cm[0], cm[4], cm[ 8], 0);
-        const v_float32x4 camRot1(cm[1], cm[5], cm[ 9], 0);
+        const v_float32x4 camRot0(cm[0], cm[4], cm[8], 0);
+        const v_float32x4 camRot1(cm[1], cm[5], cm[9], 0);
         const v_float32x4 camRot2(cm[2], cm[6], cm[10], 0);
         const v_float32x4 camTrans(cm[3], cm[7], cm[11], 0);
 
@@ -699,8 +752,8 @@ struct RaycastInvoker : ParallelLoopBody
                                                      volume.voxelSizeInv, 1.f);
 
         const float (&vm)[16] = vol2cam.matrix.val;
-        const v_float32x4 volRot0(vm[0], vm[4], vm[ 8], 0);
-        const v_float32x4 volRot1(vm[1], vm[5], vm[ 9], 0);
+        const v_float32x4 volRot0(vm[0], vm[4], vm[8], 0);
+        const v_float32x4 volRot1(vm[1], vm[5], vm[9], 0);
         const v_float32x4 volRot2(vm[2], vm[6], vm[10], 0);
         const v_float32x4 volTrans(vm[3], vm[7], vm[11], 0);
 
@@ -719,14 +772,14 @@ struct RaycastInvoker : ParallelLoopBody
 
                 // 1. reproject (x, y) on projecting plane where z = 1.f
                 v_float32x4 planed = (v_float32x4((float)x, (float)y, 0.f, 0.f) - vcxy)*vfxy;
-                planed = v_combine_low(planed, v_float32x4(1.f, 0.f, 0.f, 0.f));
+                planed             = v_combine_low(planed, v_float32x4(1.f, 0.f, 0.f, 0.f));
 
                 // 2. rotate to volume space
                 planed = v_matmuladd(planed, camRot0, camRot1, camRot2, v_setzero_f32());
 
                 // 3. normalize
                 v_float32x4 invNorm = v_invsqrt(v_setall_f32(v_reduce_sum(planed*planed)));
-                v_float32x4 dir = planed*invNorm;
+                v_float32x4 dir     = planed*invNorm;
 
                 // compute intersection of ray with all six bbox planes
                 v_float32x4 rayinv = v_setall_f32(1.f)/dir;
@@ -740,8 +793,8 @@ struct RaycastInvoker : ParallelLoopBody
 
                 // near clipping plane
                 const float clip = 0.f;
-                float tmin = max(v_reduce_max(minAx), clip);
-                float tmax =     v_reduce_min(maxAx);
+                float tmin       = max(v_reduce_max(minAx), clip);
+                float tmax       = v_reduce_min(maxAx);
 
                 // precautions against getting coordinates out of bounds
                 tmin = tmin + tstep;
@@ -753,12 +806,12 @@ struct RaycastInvoker : ParallelLoopBody
                     orig *= invVoxelSize;
                     dir  *= invVoxelSize;
 
-                    int xdim = volume.volDims[0];
-                    int ydim = volume.volDims[1];
-                    int zdim = volume.volDims[2];
+                    int xdim            = volume.volDims[0];
+                    int ydim            = volume.volDims[1];
+                    int zdim            = volume.volDims[2];
                     v_float32x4 rayStep = dir * v_setall_f32(tstep);
-                    v_float32x4 next = (orig + dir * v_setall_f32(tmin));
-                    volumeType f = volume.interpolateVoxel(next), fnext = f;
+                    v_float32x4 next    = (orig + dir * v_setall_f32(tmin));
+                    float f = volume.interpolateVoxel(next), fnext = f;
 
                     //raymarch
                     int steps = 0;
@@ -772,7 +825,7 @@ struct RaycastInvoker : ParallelLoopBody
                         int iz = ip.get0();
                         int coord = ix*xdim + iy*ydim + iz*zdim;
 
-                        fnext = volume.volume.at<Voxel>(coord).v;
+                        fnext = tsdfToFloat(volume.volume.at<TsdfVoxel>(coord).tsdf);
                         if(fnext != f)
                         {
                             fnext = volume.interpolateVoxel(next);
@@ -790,10 +843,8 @@ struct RaycastInvoker : ParallelLoopBody
                     if(f > 0.f && fnext < 0.f)
                     {
                         v_float32x4 tp = next - rayStep;
-                        volumeType ft   = volume.interpolateVoxel(tp);
-                        volumeType ftdt = volume.interpolateVoxel(next);
-                        // float t = tmin + steps*tstep;
-                        // float ts = t - tstep*ft/(ftdt - ft);
+                        float ft    = volume.interpolateVoxel(tp);
+                        float ftdt  = volume.interpolateVoxel(next);
                         float ts = tmin + tstep*(steps - ft/(ftdt - ft));
 
                         // avoid division by zero
@@ -839,7 +890,7 @@ struct RaycastInvoker : ParallelLoopBody
 
                 Point3f orig = camTrans;
                 // direction through pixel in volume space
-                Point3f dir = normalize(Vec3f(camRot * reproj(Point3f(x, y, 1.f))));
+                Point3f dir = normalize(Vec3f(camRot * reproj(Point3f(float(x), float(y), 1.f))));
 
                 // compute intersection of ray with all six bbox planes
                 Vec3f rayinv(1.f/dir.x, 1.f/dir.y, 1.f/dir.z);
@@ -852,8 +903,10 @@ struct RaycastInvoker : ParallelLoopBody
 
                 // near clipping plane
                 const float clip = 0.f;
-                float tmin = max(max(max(minAx.x, minAx.y), max(minAx.x, minAx.z)), clip);
-                float tmax =     min(min(maxAx.x, maxAx.y), min(maxAx.x, maxAx.z));
+                //float tmin = max(max(max(minAx.x, minAx.y), max(minAx.x, minAx.z)), clip);
+                //float tmax =     min(min(maxAx.x, maxAx.y), min(maxAx.x, maxAx.z));
+                float tmin = max({ minAx.x, minAx.y, minAx.z, clip });
+                float tmax = min({ maxAx.x, maxAx.y, maxAx.z });
 
                 // precautions against getting coordinates out of bounds
                 tmin = tmin + tstep;
@@ -867,11 +920,11 @@ struct RaycastInvoker : ParallelLoopBody
 
                     Point3f rayStep = dir * tstep;
                     Point3f next = (orig + dir * tmin);
-                    volumeType f = volume.interpolateVoxel(next), fnext = f;
+                    float f = volume.interpolateVoxel(next), fnext = f;
 
                     //raymarch
                     int steps = 0;
-                    int nSteps = floor((tmax - tmin)/tstep);
+                    int nSteps = int(floor((tmax - tmin)/tstep));
                     for(; steps < nSteps; steps++)
                     {
                         next += rayStep;
@@ -881,11 +934,10 @@ struct RaycastInvoker : ParallelLoopBody
                         int ix = cvRound(next.x);
                         int iy = cvRound(next.y);
                         int iz = cvRound(next.z);
-                        fnext = volume.volume.at<Voxel>(ix*xdim + iy*ydim + iz*zdim).v;
+                        fnext = tsdfToFloat(volume.volume.at<TsdfVoxel>(ix*xdim + iy*ydim + iz*zdim).tsdf);
                         if(fnext != f)
                         {
                             fnext = volume.interpolateVoxel(next);
-
                             // when ray crosses a surface
                             if(std::signbit(f) != std::signbit(fnext))
                                 break;
@@ -893,14 +945,13 @@ struct RaycastInvoker : ParallelLoopBody
                             f = fnext;
                         }
                     }
-
                     // if ray penetrates a surface from outside
                     // linearly interpolate t between two f values
                     if(f > 0.f && fnext < 0.f)
                     {
-                        Point3f tp = next - rayStep;
-                        volumeType ft   = volume.interpolateVoxel(tp);
-                        volumeType ftdt = volume.interpolateVoxel(next);
+                        Point3f tp    = next - rayStep;
+                        float ft   = volume.interpolateVoxel(tp);
+                        float ftdt = volume.interpolateVoxel(next);
                         // float t = tmin + steps*tstep;
                         // float ts = t - tstep*ft/(ftdt - ft);
                         float ts = tmin + tstep*(steps - ft/(ftdt - ft));
@@ -921,7 +972,6 @@ struct RaycastInvoker : ParallelLoopBody
                         }
                     }
                 }
-
                 ptsRow[x] = toPtype(point);
                 nrmRow[x] = toPtype(normal);
             }
@@ -944,7 +994,7 @@ struct RaycastInvoker : ParallelLoopBody
 };
 
 
-void TSDFVolumeCPU::raycast(cv::Affine3f cameraPose, Intr intrinsics, Size frameSize,
+void TSDFVolumeCPU::raycast(const cv::Matx44f& cameraPose, const Intr& intrinsics, Size frameSize,
                             cv::OutputArray _points, cv::OutputArray _normals) const
 {
     CV_TRACE_FUNCTION();
@@ -967,8 +1017,8 @@ void TSDFVolumeCPU::raycast(cv::Affine3f cameraPose, Intr intrinsics, Size frame
 struct FetchPointsNormalsInvoker : ParallelLoopBody
 {
     FetchPointsNormalsInvoker(const TSDFVolumeCPU& _volume,
-                              std::vector< std::vector<ptype> >& _pVecs,
-                              std::vector< std::vector<ptype> >& _nVecs,
+                              std::vector<std::vector<ptype>>& _pVecs,
+                              std::vector<std::vector<ptype>>& _nVecs,
                               bool _needNormals) :
         ParallelLoopBody(),
         vol(_volume),
@@ -976,7 +1026,7 @@ struct FetchPointsNormalsInvoker : ParallelLoopBody
         nVecs(_nVecs),
         needNormals(_needNormals)
     {
-        volDataStart = vol.volume.ptr<Voxel>();
+        volDataStart = vol.volume.ptr<TsdfVoxel>();
     }
 
     inline void coord(std::vector<ptype>& points, std::vector<ptype>& normals,
@@ -988,37 +1038,37 @@ struct FetchPointsNormalsInvoker : ParallelLoopBody
         float Vc = 0.f;
         if(axis == 0)
         {
-            shift = Point3i(1, 0, 0);
+            shift  = Point3i(1, 0, 0);
             limits = (x + 1 < vol.volResolution.x);
-            Vc = V.x;
+            Vc     = V.x;
         }
         if(axis == 1)
         {
-            shift = Point3i(0, 1, 0);
+            shift  = Point3i(0, 1, 0);
             limits = (y + 1 < vol.volResolution.y);
-            Vc = V.y;
+            Vc     = V.y;
         }
         if(axis == 2)
         {
-            shift = Point3i(0, 0, 1);
+            shift  = Point3i(0, 0, 1);
             limits = (z + 1 < vol.volResolution.z);
-            Vc = V.z;
+            Vc     = V.z;
         }
 
         if(limits)
         {
-            const Voxel& voxeld = volDataStart[(x+shift.x)*vol.volDims[0] +
-                                               (y+shift.y)*vol.volDims[1] +
-                                               (z+shift.z)*vol.volDims[2]];
-            volumeType vd = voxeld.v;
+            const TsdfVoxel& voxeld = volDataStart[(x+shift.x)*vol.volDims[0] +
+                                                   (y+shift.y)*vol.volDims[1] +
+                                                   (z+shift.z)*vol.volDims[2]];
+            float vd = tsdfToFloat(voxeld.tsdf);
 
             if(voxeld.weight != 0 && vd != 1.f)
             {
                 if((v0 > 0 && vd < 0) || (v0 < 0 && vd > 0))
                 {
                     //linearly interpolate coordinate
-                    float Vn = Vc + vol.voxelSize;
-                    float dinv = 1.f/(abs(v0)+abs(vd));
+                    float Vn    = Vc + vol.voxelSize;
+                    float dinv  = 1.f/(abs(v0)+abs(vd));
                     float inter = (Vc*abs(vd) + Vn*abs(v0))*dinv;
 
                     Point3f p(shift.x ? inter : V.x,
@@ -1040,14 +1090,14 @@ struct FetchPointsNormalsInvoker : ParallelLoopBody
         std::vector<ptype> points, normals;
         for(int x = range.start; x < range.end; x++)
         {
-            const Voxel* volDataX = volDataStart + x*vol.volDims[0];
+            const TsdfVoxel* volDataX = volDataStart + x*vol.volDims[0];
             for(int y = 0; y < vol.volResolution.y; y++)
             {
-                const Voxel* volDataY = volDataX + y*vol.volDims[1];
+                const TsdfVoxel* volDataY = volDataX + y*vol.volDims[1];
                 for(int z = 0; z < vol.volResolution.z; z++)
                 {
-                    const Voxel& voxel0 = volDataY[z*vol.volDims[2]];
-                    volumeType v0 = voxel0.v;
+                    const TsdfVoxel& voxel0 = volDataY[z*vol.volDims[2]];
+                    float v0             = tsdfToFloat(voxel0.tsdf);
                     if(voxel0.weight != 0 && v0 != 1.f)
                     {
                         Point3f V(Point3f((float)x + 0.5f, (float)y + 0.5f, (float)z + 0.5f)*vol.voxelSize);
@@ -1067,9 +1117,9 @@ struct FetchPointsNormalsInvoker : ParallelLoopBody
     }
 
     const TSDFVolumeCPU& vol;
-    std::vector< std::vector<ptype> >& pVecs;
-    std::vector< std::vector<ptype> >& nVecs;
-    const Voxel* volDataStart;
+    std::vector<std::vector<ptype>>& pVecs;
+    std::vector<std::vector<ptype>>& nVecs;
+    const TsdfVoxel* volDataStart;
     bool needNormals;
     mutable Mutex mutex;
 };
@@ -1080,7 +1130,7 @@ void TSDFVolumeCPU::fetchPointsNormals(OutputArray _points, OutputArray _normals
 
     if(_points.needed())
     {
-        std::vector< std::vector<ptype> > pVecs, nVecs;
+        std::vector<std::vector<ptype>> pVecs, nVecs;
         FetchPointsNormalsInvoker fi(*this, pVecs, nVecs, _normals.needed());
         Range range(0, volResolution.x);
         const int nstripes = -1;
@@ -1105,80 +1155,45 @@ void TSDFVolumeCPU::fetchPointsNormals(OutputArray _points, OutputArray _normals
     }
 }
 
-
-struct PushNormals
-{
-    PushNormals(const TSDFVolumeCPU& _vol, Mat_<ptype>& _nrm) :
-        vol(_vol), normals(_nrm), invPose(vol.pose.inv())
-    { }
-    void operator ()(const ptype &pp, const int * position) const
-    {
-        Point3f p = fromPtype(pp);
-        Point3f n = nan3;
-        if(!isNaN(p))
-        {
-            Point3f voxPt = (invPose * p);
-            voxPt = voxPt * vol.voxelSizeInv;
-            n = vol.pose.rotation() * vol.getNormalVoxel(voxPt);
-        }
-        normals(position[0], position[1]) = toPtype(n);
-    }
-    const TSDFVolumeCPU& vol;
-    Mat_<ptype>& normals;
-
-    Affine3f invPose;
-};
-
-
 void TSDFVolumeCPU::fetchNormals(InputArray _points, OutputArray _normals) const
 {
     CV_TRACE_FUNCTION();
-
+    CV_Assert(!_points.empty());
     if(_normals.needed())
     {
         Points points = _points.getMat();
         CV_Assert(points.type() == POINT_TYPE);
 
         _normals.createSameSize(_points, _points.type());
-        Mat_<ptype> normals = _normals.getMat();
+        Normals normals = _normals.getMat();
 
-        points.forEach(PushNormals(*this, normals));
+        const TSDFVolumeCPU& _vol = *this;
+        auto PushNormals = [&](const ptype& pp, const int* position)
+        {
+            const TSDFVolumeCPU& vol(_vol);
+            Affine3f invPose(vol.pose.inv());
+            Point3f p = fromPtype(pp);
+            Point3f n = nan3;
+            if (!isNaN(p))
+            {
+                Point3f voxPt = (invPose * p);
+                voxPt = voxPt * vol.voxelSizeInv;
+                n = vol.pose.rotation() * vol.getNormalVoxel(voxPt);
+            }
+            normals(position[0], position[1]) = toPtype(n);
+        };
+        points.forEach(PushNormals);
     }
 }
 
 ///////// GPU implementation /////////
 
 #ifdef HAVE_OPENCL
-
-class TSDFVolumeGPU : public TSDFVolume
+TSDFVolumeGPU::TSDFVolumeGPU(float _voxelSize, cv::Matx44f _pose, float _raycastStepFactor, float _truncDist, int _maxWeight,
+                             Point3i _resolution) :
+    TSDFVolume(_voxelSize, _pose, _raycastStepFactor, _truncDist, _maxWeight, _resolution, false)
 {
-public:
-    // dimension in voxels, size in meters
-    TSDFVolumeGPU(Point3i _res, float _voxelSize, cv::Affine3f _pose, float _truncDist, int _maxWeight,
-                  float _raycastStepFactor);
-
-    virtual void integrate(InputArray _depth, float depthFactor, cv::Affine3f cameraPose, cv::kinfu::Intr intrinsics) override;
-    virtual void raycast(cv::Affine3f cameraPose, cv::kinfu::Intr intrinsics, cv::Size frameSize,
-                         cv::OutputArray _points, cv::OutputArray _normals) const override;
-
-    virtual void fetchPointsNormals(cv::OutputArray points, cv::OutputArray normals) const override;
-    virtual void fetchNormals(cv::InputArray points, cv::OutputArray normals) const override;
-
-    virtual void reset() override;
-
-    // See zFirstMemOrder arg of parent class constructor
-    // for the array layout info
-    // Array elem is CV_32FC2, read as (float, int)
-    // TODO: optimization possible to (fp16, int16), see Voxel definition
-    UMat volume;
-};
-
-
-TSDFVolumeGPU::TSDFVolumeGPU(Point3i _res, float _voxelSize, cv::Affine3f _pose, float _truncDist, int _maxWeight,
-                             float _raycastStepFactor) :
-    TSDFVolume(_res, _voxelSize, _pose, _truncDist, _maxWeight, _raycastStepFactor, false)
-{
-    volume = UMat(1, volResolution.x * volResolution.y * volResolution.z, CV_32FC2);
+    volume = UMat(1, volResolution.x * volResolution.y * volResolution.z, CV_8UC2);
 
     reset();
 }
@@ -1192,29 +1207,81 @@ void TSDFVolumeGPU::reset()
     volume.setTo(Scalar(0, 0));
 }
 
+static cv::UMat preCalculationPixNormGPU(int depth_rows, int depth_cols, Vec2f fxy, Vec2f cxy)
+{
+    Mat x(1, depth_cols, CV_32F);
+    Mat y(1, depth_rows, CV_32F);
+    Mat _pixNorm(1, depth_rows * depth_cols, CV_32F);
+
+    for (int i = 0; i < depth_cols; i++)
+        x.at<float>(0, i) = (i - cxy[0]) / fxy[0];
+    for (int i = 0; i < depth_rows; i++)
+        y.at<float>(0, i) = (i - cxy[1]) / fxy[1];
+
+    cv::String errorStr;
+    cv::String name = "preCalculationPixNorm";
+    ocl::ProgramSource source = ocl::rgbd::tsdf_oclsrc;
+    cv::String options = "-cl-mad-enable";
+    ocl::Kernel kk;
+    kk.create(name.c_str(), source, options, &errorStr);
+
+
+    if (kk.empty())
+        throw std::runtime_error("Failed to create kernel: " + errorStr);
+
+    AccessFlag af = ACCESS_READ;
+    UMat pixNorm = _pixNorm.getUMat(af);
+    UMat xx = x.getUMat(af);
+    UMat yy = y.getUMat(af);
+
+    kk.args(ocl::KernelArg::PtrReadWrite(pixNorm),
+        ocl::KernelArg::PtrReadOnly(xx),
+        ocl::KernelArg::PtrReadOnly(yy),
+        depth_cols);
+
+    size_t globalSize[2];
+    globalSize[0] = depth_rows;
+    globalSize[1] = depth_cols;
+
+    if (!kk.run(2, globalSize, NULL, true))
+        throw std::runtime_error("Failed to run kernel");
+
+    return pixNorm;
+}
 
 // use depth instead of distance (optimization)
 void TSDFVolumeGPU::integrate(InputArray _depth, float depthFactor,
-                              cv::Affine3f cameraPose, Intr intrinsics)
+                              const cv::Matx44f& cameraPose, const Intr& intrinsics)
 {
     CV_TRACE_FUNCTION();
+    CV_Assert(!_depth.empty());
 
     UMat depth = _depth.getUMat();
 
     cv::String errorStr;
-    cv::String name = "integrate";
+    cv::String name           = "integrate";
     ocl::ProgramSource source = ocl::rgbd::tsdf_oclsrc;
-    cv::String options = "-cl-mad-enable";
+    cv::String options        = "-cl-mad-enable";
     ocl::Kernel k;
     k.create(name.c_str(), source, options, &errorStr);
 
     if(k.empty())
         throw std::runtime_error("Failed to create kernel: " + errorStr);
 
-    cv::Affine3f vol2cam(cameraPose.inv() * pose);
+    cv::Affine3f vol2cam(Affine3f(cameraPose.inv()) * pose);
     float dfac = 1.f/depthFactor;
     Vec4i volResGpu(volResolution.x, volResolution.y, volResolution.z);
     Vec2f fxy(intrinsics.fx, intrinsics.fy), cxy(intrinsics.cx, intrinsics.cy);
+    if (!(frameParams[0] == depth.rows && frameParams[1] == depth.cols &&
+        frameParams[2] == intrinsics.fx && frameParams[3] == intrinsics.fy &&
+        frameParams[4] == intrinsics.cx && frameParams[5] == intrinsics.cy))
+    {
+        frameParams[0] = (float)depth.rows; frameParams[1] = (float)depth.cols;
+        frameParams[2] = intrinsics.fx;     frameParams[3] = intrinsics.fy;
+        frameParams[4] = intrinsics.cx;     frameParams[5] = intrinsics.cy;
+
+        pixNorms = preCalculationPixNormGPU(depth.rows, depth.cols, fxy, cxy);
+    }
 
     // TODO: optimization possible
     // Use sampler for depth (mask needed)
@@ -1229,7 +1296,8 @@ void TSDFVolumeGPU::integrate(InputArray _depth, float depthFactor,
            cxy.val,
            dfac,
            truncDist,
-           maxWeight);
+           int(maxWeight),
+           ocl::KernelArg::PtrReadOnly(pixNorms));
 
     size_t globalSize[2];
     globalSize[0] = (size_t)volResolution.x;
@@ -1240,7 +1308,7 @@ void TSDFVolumeGPU::integrate(InputArray _depth, float depthFactor,
 }
 
 
-void TSDFVolumeGPU::raycast(cv::Affine3f cameraPose, Intr intrinsics, Size frameSize,
+void TSDFVolumeGPU::raycast(const cv::Matx44f& cameraPose, const Intr& intrinsics, Size frameSize,
                             cv::OutputArray _points, cv::OutputArray _normals) const
 {
     CV_TRACE_FUNCTION();
@@ -1248,9 +1316,9 @@ void TSDFVolumeGPU::raycast(cv::Affine3f cameraPose, Intr intrinsics, Size frame
     CV_Assert(frameSize.area() > 0);
 
     cv::String errorStr;
-    cv::String name = "raycast";
+    cv::String name           = "raycast";
     ocl::ProgramSource source = ocl::rgbd::tsdf_oclsrc;
-    cv::String options = "-cl-mad-enable";
+    cv::String options        = "-cl-mad-enable";
     ocl::Kernel k;
     k.create(name.c_str(), source, options, &errorStr);
 
@@ -1264,8 +1332,8 @@ void TSDFVolumeGPU::raycast(cv::Affine3f cameraPose, Intr intrinsics, Size frame
     UMat normals = _normals.getUMat();
 
     UMat vol2camGpu, cam2volGpu;
-    Affine3f vol2cam = cameraPose.inv() * pose;
-    Affine3f cam2vol = pose.inv() * cameraPose;
+    Affine3f vol2cam = Affine3f(cameraPose.inv()) * pose;
+    Affine3f cam2vol = pose.inv() * Affine3f(cameraPose);
     Mat(cam2vol.matrix).copyTo(cam2volGpu);
     Mat(vol2cam.matrix).copyTo(vol2camGpu);
     Intr::Reprojector r = intrinsics.makeReprojector();
@@ -1306,6 +1374,7 @@ void TSDFVolumeGPU::raycast(cv::Affine3f cameraPose, Intr intrinsics, Size frame
 void TSDFVolumeGPU::fetchNormals(InputArray _points, OutputArray _normals) const
 {
     CV_TRACE_FUNCTION();
+    CV_Assert(!_points.empty());
 
     if(_normals.needed())
     {
@@ -1316,9 +1385,9 @@ void TSDFVolumeGPU::fetchNormals(InputArray _points, OutputArray _normals) const
         UMat normals = _normals.getUMat();
 
         cv::String errorStr;
-        cv::String name = "getNormals";
+        cv::String name           = "getNormals";
         ocl::ProgramSource source = ocl::rgbd::tsdf_oclsrc;
-        cv::String options = "-cl-mad-enable";
+        cv::String options        = "-cl-mad-enable";
         ocl::Kernel k;
         k.create(name.c_str(), source, options, &errorStr);
 
@@ -1365,7 +1434,7 @@ void TSDFVolumeGPU::fetchPointsNormals(OutputArray points, OutputArray normals) 
 
         cv::String errorStr;
         ocl::ProgramSource source = ocl::rgbd::tsdf_oclsrc;
-        cv::String options = "-cl-mad-enable";
+        cv::String options        = "-cl-mad-enable";
 
         kscan.create("scanSize", source, options, &errorStr);
 
@@ -1378,15 +1447,15 @@ void TSDFVolumeGPU::fetchPointsNormals(OutputArray points, OutputArray normals) 
         globalSize[2] = (size_t)volResolution.z;
 
         const ocl::Device& device = ocl::Device::getDefault();
-        size_t wgsLimit = device.maxWorkGroupSize();
-        size_t memSize  = device.localMemSize();
+        size_t wgsLimit           = device.maxWorkGroupSize();
+        size_t memSize            = device.localMemSize();
         // local mem should keep a point (and a normal) for each thread in a group
         // use 4 float per each point and normal
-        size_t elemSize = (sizeof(float)*4)*(needNormals ? 2 : 1);
-        const size_t lcols = 8;
-        const size_t lrows = 8;
-        size_t lplanes = min(memSize/elemSize, wgsLimit)/lcols/lrows;
-        lplanes = roundDownPow2(lplanes);
+        size_t elemSize     = (sizeof(float)*4)*(needNormals ? 2 : 1);
+        const size_t lcols  = 8;
+        const size_t lrows  = 8;
+        size_t lplanes      = min(memSize/elemSize, wgsLimit)/lcols/lrows;
+        lplanes             = roundDownPow2(lplanes);
         size_t localSize[3] = {lcols, lrows, lplanes};
         Vec3i ngroups((int)divUp(globalSize[0], (unsigned int)localSize[0]),
                       (int)divUp(globalSize[1], (unsigned int)localSize[1]),
@@ -1416,7 +1485,7 @@ void TSDFVolumeGPU::fetchPointsNormals(OutputArray points, OutputArray normals) 
             throw std::runtime_error("Failed to run kernel");
 
         Mat groupedSumCpu = groupedSum.getMat(ACCESS_READ);
-        int gpuSum = (int)cv::sum(groupedSumCpu)[0];
+        int gpuSum        = (int)cv::sum(groupedSumCpu)[0];
         // should be no CPU copies when new kernel is executing
         groupedSumCpu.release();
 
@@ -1472,14 +1541,16 @@ void TSDFVolumeGPU::fetchPointsNormals(OutputArray points, OutputArray normals) 
 
 #endif
 
-cv::Ptr<TSDFVolume> makeTSDFVolume(Point3i _res,  float _voxelSize, cv::Affine3f _pose, float _truncDist, int _maxWeight,
-                                   float _raycastStepFactor)
+cv::Ptr<TSDFVolume> makeTSDFVolume(float _voxelSize, cv::Matx44f _pose, float _raycastStepFactor,
+                                   float _truncDist, int _maxWeight, Point3i _resolution)
 {
 #ifdef HAVE_OPENCL
-    if(cv::ocl::useOpenCL())
-        return cv::makePtr<TSDFVolumeGPU>(_res, _voxelSize, _pose, _truncDist, _maxWeight, _raycastStepFactor);
+    if (cv::ocl::useOpenCL())
+        return cv::makePtr<TSDFVolumeGPU>(_voxelSize, _pose, _raycastStepFactor, _truncDist, _maxWeight,
+                                          _resolution);
 #endif
-    return cv::makePtr<TSDFVolumeCPU>(_res, _voxelSize, _pose, _truncDist, _maxWeight, _raycastStepFactor);
+    return cv::makePtr<TSDFVolumeCPU>(_voxelSize, _pose, _raycastStepFactor, _truncDist, _maxWeight,
+                                      _resolution);
 }
 
 } // namespace kinfu

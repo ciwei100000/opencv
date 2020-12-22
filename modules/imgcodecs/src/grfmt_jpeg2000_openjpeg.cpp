@@ -34,7 +34,7 @@ String colorspaceName(COLOR_SPACE colorspace)
     case OPJ_CLRSPC_UNSPECIFIED:
         return "unspecified";
     default:
-        CV_Assert(!"Invalid colorspace");
+        CV_Error(Error::StsNotImplemented, "Invalid colorspace");
     }
 }
 
@@ -141,7 +141,7 @@ public:
         return ChannelsIterator<Traits>(*this) += n;
     }
 
-    difference_type operator-(const ChannelsIterator<Traits>& other)
+    difference_type operator-(const ChannelsIterator<Traits>& other) const
     {
         return (ptr_ - other.ptr_) / step_;
     }
@@ -214,7 +214,7 @@ void copyToMatImpl(std::vector<InT*>&& in, Mat& out, uint8_t shift)
                 const auto first = in[c];
                 const auto last = first + size.width;
                 auto dOut = ChannelsIt(rowPtr, c, channelsCount);
-                std::transform(first, last, dOut, [shift](InT val) -> OutT { return val >> shift; });
+                std::transform(first, last, dOut, [shift](InT val) -> OutT { return static_cast<OutT>(val >> shift); });
                 in[c] += size.width;
             }
         }
@@ -229,7 +229,7 @@ void copyToMatImpl(std::vector<InT*>&& in, Mat& out, uint8_t shift)
                 const auto first = in[c];
                 const auto last = first + size.width;
                 auto dOut = ChannelsIt(rowPtr, c, channelsCount);
-                std::copy(first, last, dOut);
+                std::transform(first, last, dOut, [](InT val) -> OutT { return static_cast<OutT>(val); });
                 in[c] += size.width;
             }
         }
@@ -327,12 +327,14 @@ opj_cparameters setupEncoderParameters(const std::vector<int>& params)
 {
     opj_cparameters parameters;
     opj_set_default_encoder_parameters(&parameters);
+    bool rate_is_specified = false;
     for (size_t i = 0; i < params.size(); i += 2)
     {
         switch (params[i])
         {
         case cv::IMWRITE_JPEG2000_COMPRESSION_X1000:
             parameters.tcp_rates[0] = 1000.f / std::min(std::max(params[i + 1], 1), 1000);
+            rate_is_specified = true;
             break;
         default:
             CV_LOG_WARNING(NULL, "OpenJPEG2000(encoder): skip unsupported parameter: " << params[i]);
@@ -341,6 +343,10 @@ opj_cparameters setupEncoderParameters(const std::vector<int>& params)
     }
     parameters.tcp_numlayers = 1;
     parameters.cp_disto_alloc = 1;
+    if (!rate_is_specified)
+    {
+        parameters.tcp_rates[0] = 4;
+    }
     return parameters;
 }
 
@@ -558,8 +564,12 @@ bool Jpeg2KOpjDecoder::readHeader()
             CV_Error(Error::StsNotImplemented, cv::format("OpenJPEG2000: Component %d/%d is duplicate alpha channel", i, numcomps));
         }
 
-        hasAlpha |= comp.alpha;
+        hasAlpha |= comp.alpha != 0;
 
+        if (comp.prec > 64)
+        {
+            CV_Error(Error::StsNotImplemented, "OpenJPEG2000: precision > 64 is not supported");
+        }
         m_maxPrec = std::max(m_maxPrec, comp.prec);
     }
 
@@ -623,7 +633,24 @@ bool Jpeg2KOpjDecoder::readData( Mat& img )
         CV_Error(Error::StsNotImplemented,
                  cv::format("OpenJPEG2000: output precision > 16 not supported: target depth %d", depth));
     }();
-    const uint8_t shift = outPrec > m_maxPrec ? 0 : m_maxPrec - outPrec;
+    const uint8_t shift = outPrec > m_maxPrec ? 0 : (uint8_t)(m_maxPrec - outPrec); // prec <= 64
+
+    const int inChannels = image_->numcomps;
+
+    CV_Assert(inChannels > 0);
+    CV_Assert(image_->comps);
+    for (int c = 0; c < inChannels; c++)
+    {
+        const opj_image_comp_t& comp = image_->comps[c];
+        CV_CheckEQ((int)comp.dx, 1, "OpenJPEG2000: tiles are not supported");
+        CV_CheckEQ((int)comp.dy, 1, "OpenJPEG2000: tiles are not supported");
+        CV_CheckEQ((int)comp.x0, 0, "OpenJPEG2000: tiles are not supported");
+        CV_CheckEQ((int)comp.y0, 0, "OpenJPEG2000: tiles are not supported");
+        CV_CheckEQ((int)comp.w, img.cols, "OpenJPEG2000: tiles are not supported");
+        CV_CheckEQ((int)comp.h, img.rows, "OpenJPEG2000: tiles are not supported");
+        CV_Assert(comp.data && "OpenJPEG2000: missing component data (unsupported / broken input)");
+    }
+
     return decode(*image_, img, shift);
 }
 
