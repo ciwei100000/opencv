@@ -19,7 +19,9 @@ Build-Depends: ant [!hppa !hurd-any !kfreebsd-any],
                libdc1394-dev [linux-any],
                libeigen3-dev,
                libgdal-dev,
-               libgdcm-dev [!hppa !m68k !powerpcspe !sh4 !sparc64 !x32],
+               libgdcm-dev [!alpha !hppa !ia64 !kfreebsd-amd64 !kfreebsd-i386 !m68k !powerpcspe !sh4 !x32],
+               libvtkgdcm-dev [!alpha !hppa !ia64 !kfreebsd-amd64 !kfreebsd-i386 !m68k !powerpcspe !sh4 !x32],
+               libgdcm-tools [!alpha !hppa !ia64 !kfreebsd-amd64 !kfreebsd-i386 !m68k !powerpcspe !sh4 !x32],
                libgl1-mesa-dev,
                libglu1-mesa-dev,
                libgoogle-glog-dev,
@@ -39,8 +41,6 @@ Build-Depends: ant [!hppa !hurd-any !kfreebsd-any],
                libtiff-dev,
                libv4l-dev [linux-any],
                libvtk8-dev,
-               libvtkgdcm-dev [!alpha !ppc64 !x32],
-               libgdcm-tools,
                libgstreamer1.0-dev,
                libgstreamer-plugins-base1.0-dev,
                maven-repo-helper [!hppa !hurd-any !kfreebsd-any],
@@ -99,12 +99,11 @@ Depends: libopencv-calib3d-dev (= ${binary:Version}),
          libopencv-videoio-dev (= ${binary:Version}),
          libopencv-videostab-dev (= ${binary:Version}),
          libopencv-viz-dev (= ${binary:Version}),
-         libopencv4.5-java (= ${source:Version}),
          pkg-config,
          ${misc:Depends},
          ${shlibs:Depends},
          libilmbase-dev
-Recommends: opencv-data
+Recommends: opencv-data, libopencv4.5-java (= ${binary:Version}),
 Suggests: opencv-doc
 Conflicts: libcv-dev,
            libcvaux-dev,
@@ -1108,8 +1107,8 @@ Description: computer vision contrlib library
  recognition, camera calibration and 3D reconstruction.
 
 Package: libopencv4.5-java
-Architecture: all
-Multi-Arch: foreign
+Architecture: any
+Multi-Arch: no
 Section: java
 Depends: libopencv4.5-jni (>= ${binary:Version}),
          ${java:Depends},
@@ -1149,6 +1148,7 @@ Description: Java bindings for the computer vision library
 
 Package: libopencv4.5-jni
 Architecture: amd64 arm64 armel armhf i386 mips64el mipsel ppc64el s390x alpha ia64 m68k powerpc ppc64 riscv64 sh4 sparc64 x32
+Multi-Arch: no
 Section: java
 Depends: libopencv-calib3d4.5 (= ${binary:Version}),
          libopencv-highgui4.5 (= ${binary:Version}),
