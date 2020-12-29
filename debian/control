@@ -1107,7 +1107,7 @@ Description: computer vision contrlib library
  recognition, camera calibration and 3D reconstruction.
 
 Package: libopencv4.5-java
-Architecture: any
+Architecture: amd64 arm64 armel armhf i386 mips64el mipsel ppc64el s390x alpha ia64 m68k powerpc ppc64 riscv64 sh4 sparc64 x32
 Multi-Arch: no
 Section: java
 Depends: libopencv4.5-jni (>= ${binary:Version}),
@@ -1194,7 +1194,8 @@ Depends: libopencv-calib3d4.5 (= ${binary:Version}),
          libopencv-viz4.5 (= ${binary:Version}),
          ${misc:Depends},
          ${python3:Depends},
-         ${shlibs:Depends}
+         ${shlibs:Depends},
+         libcharls2
 Description: Python 3 bindings for the computer vision library
  This package contains Python 3 bindings for the OpenCV (Open Computer Vision)
  library.
