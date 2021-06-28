@@ -1,9 +1,18 @@
+opencv (4.5.1+dfsg-5) unstable; urgency=medium
+
+  * Team upload.
+  * Drop depends between library packages (Closes: #979809)
+  * Drop ${java:Depends}/${java:Recommends} (undefined)
+  * Update libgdcm-dev arch list (Closes: #987621)
+
+ -- Jochen Sprickerhof <jspricke@debian.org>  Wed, 16 Jun 2021 14:09:47 +0200
+
 opencv (4.5.1+dfsg-4vtk8) unstable; urgency=medium
 
   * Merge branch 'master' into vtk8
     4.5.1+dfsg-4
 
- -- ciwei100000 <ciwei100000@gmail.com>  Wed, 6 Jan 2020 00:22:12 -0800
+ -- ciwei100000 <ciwei100000@gmail.com>  Wed, 6 Jan 2021 00:22:12 -0800
 
 opencv (4.5.1+dfsg-4) unstable; urgency=medium
 
