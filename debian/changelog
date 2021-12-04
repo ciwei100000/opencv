@@ -1,3 +1,9 @@
+opencv (4.5.4+dfsg-9vtk8) unstable; urgency=medium
+
+  * Merge branch 'debian/4.5.4+dfsg-9' into vtk8
+
+ -- Xuqing Liu <ciwei100000@gmail.com>  Sat, 04 Dec 2021 00:35:19 -0800
+
 opencv (4.5.4+dfsg-9) unstable; urgency=medium
 
   * Fix broken symlink
