@@ -2,3 +2,4 @@ change_jquery.js_path
 face-no-download.patch
 cmake-dont-install-inexistent-files.patch
 debian_soversion.patch
+ffmpeg-5.0-support.patch
