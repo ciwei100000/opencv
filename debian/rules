@@ -50,6 +50,10 @@ export DEB_BUILD_OPTIONS=noopt
 CXXFLAGS+=-gsplit-dwarf
 endif
 
+ifneq (,$(filter $(DEB_HOST_ARCH), armel m68k mipsel powerpc sh4))
+export DEB_LDFLAGS_MAINT_APPEND += -Wl,--no-as-needed -latomic -Wl,--as-needed
+endif
+
 # For Java
 export JAVA_HOME=/usr/lib/jvm/default-java
 
@@ -115,11 +119,7 @@ CMAKE_FLAGS = \
 	$(CMAKE_ARCH_FLAGS)
 
 %:
-ifeq (,$(findstring $(DEB_HOST_ARCH), hppa hurd-i386 kfreebsd-i386 kfreebsd-amd64))
-	dh $@ --with python3,javahelper,jh_maven_repo_helper
-else
-	dh $@ --with python3
-endif
+	dh $@
 
 override_dh_auto_clean:
 	dh_auto_clean -B $(BUILDDIR)
@@ -137,7 +137,7 @@ override_dh_auto_configure:
 	dh_auto_configure -B $(BUILDDIR)-static \
 		-- $(CMAKE_FLAGS) \
 		-DBUILD_SHARED_LIBS=OFF -DBUILD_DOCS=OFF \
-		-DBUILD_TESTS=OFF
+		-DBUILD_TESTS=OFF -DBUILD_opencv_python3=OFF
 
 override_dh_auto_build:
 	# documentation
@@ -176,6 +176,3 @@ execute_before_dh_install:
 	-find debian/tmp -type f -name '*.supp' -delete
 	-find debian/tmp -type d -empty -delete
 	-$(RM) -r $(BUILDDIR)-static
-
-execute_before_dh_gencontrol:
-	dh_numpy3 -p python3-opencv
