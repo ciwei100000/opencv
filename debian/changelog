@@ -1,3 +1,9 @@
+opencv (4.6.0+dfsg-4vtk8) unstable; urgency=medium
+
+  * Merge branch 'debian/4.6.0+dfsg-4' into vtk8
+
+ -- Xuqing Liu <ciwei100000@gmail.com>  Wed, 13 Jul 2022 23:06:01 -0700
+
 opencv (4.6.0+dfsg-4) unstable; urgency=medium
 
   * Team upload.
@@ -47,7 +53,6 @@ opencv (4.5.4+dfsg-9vtk8u1) unstable; urgency=medium
   * [patch] backport upstream patch videoio: initial FFmpeg 5.0 support
 
  -- Xuqing Liu <ciwei100000@gmail.com>  Sun, 03 Jul 2022 20:48:18 -0700
-
 
 opencv (4.5.4+dfsg-9vtk8) unstable; urgency=medium
 
