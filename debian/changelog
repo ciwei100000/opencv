@@ -1,3 +1,9 @@
+opencv (4.6.0+dfsg-6vtk8) unstable; urgency=medium
+
+  * Merge branch 'debian/4.6.0+dfsg-6' into vtk8
+
+ -- Xuqing Liu <ciwei100000@gmail.com>  Thu, 1 Sep 2022 01:59:31 -0700
+
 opencv (4.6.0+dfsg-6) unstable; urgency=medium
 
   * Team upload.
