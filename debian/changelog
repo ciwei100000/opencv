@@ -1,3 +1,19 @@
+opencv (4.6.0+dfsg-7) unstable; urgency=medium
+
+  [ Victor Westerhuis ]
+  * Do not try to download any files while building (Closes: 1019519)
+  * Support building by directly calling d/rules
+  * Fix Java architecture test in d/build
+  * Do not build unused statically linked apps and Java bindings
+  * Delete useless Build-Depends on libswresample
+  * Fix building with LAPACK
+  * Build highgui module with QT support (Closes: 958028)
+
+  [ Mo Zhou ]
+  * Fix broken symlink for .jar file. (Closes: #1019863)
+
+ -- Mo Zhou <lumin@debian.org>  Wed, 21 Sep 2022 20:51:42 -0400
+
 opencv (4.6.0+dfsg-6vtk8) unstable; urgency=medium
 
   * Merge branch 'debian/4.6.0+dfsg-6' into vtk8
