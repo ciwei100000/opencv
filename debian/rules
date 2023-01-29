@@ -65,11 +65,14 @@ CMAKE_FLAGS = \
 	-GNinja \
 	-DANT_EXECUTABLE=/usr/bin/ant \
 	-DBUILD_EXAMPLES=OFF \
+	-DBUILD_INFO_SKIP_TIMESTAMP=ON \
 	-DBUILD_PROTOBUF=OFF \
 	-DBUILD_PERF_TESTS=OFF \
 	-DBUILD_opencv_dnn=ON \
 	-DBUILD_opencv_dnn_modern=ON \
 	-DBUILD_opencv_face=ON \
+	-DBUILD_opencv_python2=OFF \
+	-DBUILD_opencv_python3=OFF \
 	-DCMAKE_BUILD_TYPE=Release	\
 	-DCMAKE_CXX_FLAGS_RELEASE="$(CXXFLAGS)" \
 	-DCMAKE_C_FLAGS_RELEASE="$(CFLAGS)" \
@@ -84,7 +87,6 @@ CMAKE_FLAGS = \
 	-DOPENCL_INCLUDE_DIR:PATH="/usr/include/CL/" \
 	-DOPENCV_EXTRA_MODULES_PATH="$(CURDIR)/contrib/modules" \
 	-DOPENCV_MATHJAX_RELPATH=/usr/share/javascript/mathjax/ \
-	-DOPENCV_SKIP_PYTHON_LOADER=ON \
 	-DOPENCV_GENERATE_PKGCONFIG=ON \
 	-DOPENCV_LAPACK_FIND_PACKAGE_ONLY=ON \
 	-DOPENCV_DOWNLOAD_TRIES_LIST= \
@@ -126,10 +128,13 @@ CMAKE_FLAGS = \
 override_dh_auto_clean:
 	dh_auto_clean -B $(BUILDDIR)
 	dh_auto_clean -B $(BUILDDIR)-static
+	dh_auto_clean -S pybuild \
+		-- --name=opencv --system=custom \
+		--clean-args "dh_auto_clean -B {build_dir}"
 
 
 override_dh_auto_configure:
-	# dynamicly linked
+	# dynamically linked
 	dh_auto_configure -B $(BUILDDIR) \
 		-- $(CMAKE_FLAGS) $(CMAKE_JAVA_FLAGS) \
 		-DCMAKE_SHARED_LINKER_FLAGS_RELEASE="$(LDFLAGS)" \
@@ -139,8 +144,26 @@ override_dh_auto_configure:
 	dh_auto_configure -B $(BUILDDIR)-static \
 		-- $(CMAKE_FLAGS) \
 		-DBUILD_SHARED_LIBS=OFF -DBUILD_DOCS=OFF \
-		-DBUILD_TESTS=OFF -DBUILD_opencv_python3=OFF \
+		-DBUILD_TESTS=OFF \
 		-DBUILD_opencv_apps=OFF -DBUILD_JAVA=OFF
+	# Python extension
+	dh_auto_configure -S pybuild \
+		-- --name=opencv --system=custom --configure-args "\
+			dh_auto_configure -S cmake -D modules/python -B {build_dir} -- \
+				-GNinja \
+				-DCMAKE_BUILD_RPATH_USE_ORIGIN=ON \
+				-DOpenCV_BINARY_DIR=$(CURDIR)/$(BUILDDIR) \
+				-DOPENCV_PYTHON_STANDALONE_INSTALL_PATH={install_dir} \
+				-DOPENCV_SKIP_PYTHON_LOADER=ON \
+				-DOPENCV_PYTHON_VERSION={version} \
+				-DPYTHON_EXECUTABLE:FILEPATH=/usr/bin/{interpreter} \
+				-DPYTHON_LIBRARY:FILEPATH={interpreter.library_file} \
+				-DPYTHON_INCLUDE_DIR:PATH={interpreter.include_dir}"
+	# strip non-reproducible info from version string
+	sed -i -e 's,$(CURDIR),<<PKGBUILDDIR>>,g' \
+		-e "s,$$(uname -sr),,g" \
+		$(BUILDDIR)/modules/core/version_string.inc \
+		$(BUILDDIR)-static/modules/core/version_string.inc
 
 override_dh_auto_build:
 	# documentation
@@ -150,11 +173,19 @@ ifneq (,$(findstring $(DEB_HOST_ARCH), mipsel))
 	dh_auto_build --no-parallel -B $(BUILDDIR)
 	# statically linked
 	dh_auto_build --no-parallel -B $(BUILDDIR)-static
+	# Python extension
+	dh_auto_build --no-parallel -S pybuild \
+		-- --name=opencv --system=custom \
+		--build-args "dh_auto_build -B {build_dir}"
 else
 	# dynamically linked
 	dh_auto_build -B $(BUILDDIR)
 	# statically linked
 	dh_auto_build -B $(BUILDDIR)-static
+	# Python extension
+	dh_auto_build -S pybuild \
+		-- --name=opencv --system=custom \
+		--build-args "dh_auto_build -B {build_dir}"
 endif
 
 override_dh_auto_test:
@@ -171,6 +202,10 @@ endif
 
 override_dh_auto_install:
 	dh_auto_install -B $(BUILDDIR)
+	# Python extension
+	dh_auto_install -S pybuild \
+		-- --name=opencv --system=custom \
+		--install-args "dh_auto_install -B {build_dir} --destdir={destdir}"
 
 execute_before_dh_install:
 	# put the static libs together with the rest of the stuff
@@ -179,3 +214,10 @@ execute_before_dh_install:
 	-find debian/tmp -type f -name '*.supp' -delete
 	-find debian/tmp -type d -empty -delete
 	-$(RM) -r $(BUILDDIR)-static
+
+execute_before_dh_strip_nondeterminism-indep:
+	# This can be deleted after https://github.com/doxygen/doxygen/pull/9227 is
+	# in the version of Doxygen in Debian. It won't hurt afterwards, because
+	# there will be nothing to strip anymore.
+	sed -i -e 's,$(CURDIR)/\($(BUILDDIR)/\)\?,,g' \
+		debian/opencv-doc/usr/share/doc/opencv-doc/opencv4/html/opencv.tag
