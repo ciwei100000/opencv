@@ -1,3 +1,9 @@
+opencv (4.6.0+dfsg-12vtk8) unstable; urgency=medium
+
+  * Merge tag '4.6.0+dfsg-12' into vtk8
+
+ -- Xuqing Liu <ciwei100000@gmail.com>  Sat, 22 Jul 2023 13:01:38 -0700
+
 opencv (4.6.0+dfsg-12) unstable; urgency=medium
 
   * Team upload.
