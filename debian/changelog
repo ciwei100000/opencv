@@ -1,3 +1,13 @@
+opencv (4.6.0+dfsg-13) unstable; urgency=medium
+
+  * Embed and enable the 3rdparty source for QUIRC as per user request.
+  * Add several missing build dependencies for libopenjp, libva and imath.
+  * Patch: remove the downloading function from cmake files.
+  * Fix obsolete B-D libgl1-mesa-dev => libgl-dev.
+  * Update copyright and lintian overrides. It's lintian-clean now.
+
+ -- Mo Zhou <lumin@debian.org>  Sun, 16 Jul 2023 19:20:35 -0700
+
 opencv (4.6.0+dfsg-12vtk8) unstable; urgency=medium
 
   * Merge tag '4.6.0+dfsg-12' into vtk8
@@ -9,8 +19,8 @@ opencv (4.6.0+dfsg-12) unstable; urgency=medium
   * Team upload.
 
   [ Andreas Beckmann ]
-  * libopencv-core406: Add Breaks: libopencv-core4.5 for smoother upgrades from bullseye
-    (Closes: #1035886)
+  * libopencv-core406: Add Breaks: libopencv-core4.5 for smoother upgrades
+    from bullseye (Closes: #1035886)
 
   [ Jochen Sprickerhof ]
   * Add upstream patches for CVE-2023-2617 and CVE-2023-2618 (Closes: #1035954)
